@@ -1,0 +1,77 @@
+####CSE 7315c Day01 Lab ####
+#### 1.	Two people work in a factory making parts for cars. The matrix shows how many complete parts they make in one week.
+#         - (a) Find the mean, median and range for Philip and Matthews.  
+#         - (b) Who is more consistent?  
+
+
+factory_work <- matrix(data = c(15, 21, 20, 20, 20, 30, 25, 12, 35, 0), 
+                       nrow = 2, ncol = 5, byrow = TRUE)
+
+rownames(factory_work) <- c('Philip','Mathew')
+
+colnames(factory_work) <- c('Mon','Tue','Wed','Thu','Fri')
+
+factory_work
+
+class(factory_work)
+
+
+###index starts from 1
+factory_work[2,1]
+factory_work[,2]
+
+#Getting mean median and range(max-min)
+cen_ten = data.frame(Mean=mean(factory_work[1,]),Median=median(factory_work[1,]),Range=range(factory_work[1,])[2]-range(factory_work[1,])[1])
+cen_ten
+
+####Q1a. Find mean, median and range====
+fun_1<-function(x){
+  return(data.frame(Mean=mean(x),Median=median(x),Range=range(x)[2]-range(x)[1]))
+}
+
+apply(factory_work,1,FUN=fun_1)
+
+
+####Q1b. Who is more consistant
+apply(factory_work,1,FUN=sd)
+
+
+####Q2.a Kohli scores 65,72,58 and 77 in 4 consecutive matches Natwest Series. 
+####Find the Mean and median of his scores.====
+####Q2.b What will be the change in Mean value when Kohli scores 70 runs in his next match
+kohli_scores <- c(65, 72, 58, 77)
+mean(kohli_scores);
+
+median(kohli_scores)
+
+mean(c(kohli_scores,70))-mean(kohli_scores) 
+##Similar computation for the median
+
+####Q3. Mode====
+
+given_data <- c(8, 6, 2, 4, 6, 8, 10, 8)
+
+data_in_table <- table(given_data)
+
+data_in_table
+
+names(sort(data_in_table, decreasing = T))[1]
+
+
+####Q4.	Analyze the performance of your class in the first ROTe taken at INSOFE ====
+#         - (a) How is the spread of the scores?
+#         - (b) Draw a histogram to visualize the data distribution.
+#         - (c) Find the 25th percentile, 50th percentile and 75th percentile for this data.
+#         - (d) Find outliers, if any. Do a boxplot to visualize the same.
+
+# Scores: 11, 7.5, 8.5, 10, 10, 10.5, 5.5, 10, 9, 9.5, 5.25, 8, 6.5, 10.5, 8.75, 0, 6, 6, 6.75, 8.75, 0, 9.5, 7.5, 8.5, 7
+scores=c(11, 7.5, 8.5, 10, 10, 10.5, 5.5, 10, 9, 9.5, 5.25, 8, 6.5, 
+         10.5, 8.75, 0, 6, 6, 6.75, 8.75, 0, 9.5, 7.5, 8.5, 7)
+
+spread_sd=sd(scores);
+spread_r=range(scores)[2]-range(scores)[1];
+spread_sd;
+spread_r
+hist(scores)
+quantile(scores,probs = c(0,0.25,0.5,0.75))
+boxplot(x = scores)
