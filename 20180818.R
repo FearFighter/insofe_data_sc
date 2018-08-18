@@ -10,7 +10,7 @@ n=
   
 x = 29000
 #p(xbar < 29000)
-se = sigma/sqrt(n) # standard erro / std dev of sample
+se = sigma/sqrt(n) # standard error / std dev of sample
 se
 zscore = (x-mean)/se
 zscore
