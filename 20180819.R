@@ -1,14 +1,37 @@
-result = function(test_stat,t_value){
-  if(test_stat < t_value ){
-    print("test_stat < t_value , so accept the null hypo, ie observed fits the expected")
-  } else{
-    print("test_stat > t_value , so reject the null hypo, ie observed doesn't fits the expected")
-  }
+
+analyse_hypo = function(test_stat,alternative,critical_value1,critical_value2=NULL){
+  print("If the absolute value of the t-value is greater than the critical value, you reject the null hypothesis. If the absolute value of the t-value is less than the critical value, you fail to reject the null hypothesis.")
+  switch(alternative, 
+         one_tail={
+           print('One Tail Test:')
+           if(abs(test_stat) > abs(critical_value1)){
+             print("abs(test_stat) > abs(critical_value), so ACCEPT the NULL HYPOTHESIS")
+           } else{
+             print("test_stat < critical_value, so FAILED to REJECT the NULL HYPOTHESIS")
+           }
+         },
+         two_tail={
+           print('Two Tail Test:')
+           if(is.null(critical_value1) || is.null(critical_value2)){
+             print("2 critical values are required for Two Tail Test")
+             return
+           }
+             
+           if(critical_value1 <= test_stat && test_stat <= critical_value2 ){
+             print("test stat is in between the range, so FAILED to REJECT the NULL HYPOTHESIS")
+           } else{
+             print("test stat is not in between the range, so REJECT the NULL HYPOTHESIS")
+           }
+         },
+         {
+           print('invalid alternative hypothesis entered')
+         }
+  )
 }
 
 
-result_two_tail_chi = function(test_stat,t1,t2){
-  
+analyse_hypo_two_tail_chi = function(test_stat,t1,t2){
+
   if(t1 <= test_stat && test_stat <= t2 ){
     print("test stat is in between the range, so accept the null hypo")
   } else{
@@ -27,17 +50,20 @@ result_two_tail_chi = function(test_stat,t1,t2){
 xbar = 22
 m = 25
 s = 1.5
-
 alpha = 0.05
 n=10
+
 se = s/sqrt(n)
 test_stat = (xbar-m)/se
 test_stat
-dof = n-1
-t_value = qt(alpha,dof)
-t_value
 
-# -6.32 < -1.83, so reject the null hypothesis
+dof = n-1
+
+crit = qt(alpha,dof)
+crit
+analyse_hypo(test_stat,"one_tail",crit)
+
+# "test_stat < critical_value , so accept the null hypo"
 
 # 2. An outbreak of Salmonella-related illness was attributed to ice cream produced at a certain factory. Scientists measured 
 # the level of Salmonella in 9 randomly sampled batches of ice cream. The levels (in MPN/g) were: 
@@ -63,9 +89,11 @@ se = s/sqrt(n)
 test_stat = (xbar-m)/se
 test_stat
 dof = n-1
-t_value = qt(alpha,dof)
-t_value
-dt(t_value)
+crit = qt(alpha,dof)
+crit
+# dt(crit)
+analyse_hypo(test_stat,"one_tail",crit)
+
 
 # 2.205 > 1.85 , so we reject the null hypo
 
@@ -135,7 +163,7 @@ tvalue
 # 0 doesn't lies b/w 1.180207 and infinity
 # t_stat > t_value
 # p value < 0.05
-result(t1$statistic,tvalue)
+analyse_hypo(t1$statistic,'one_tail',tvalue)
 
 
 
@@ -174,7 +202,7 @@ test_stat
 
 crit = qchisq(0.05,3,lower.tail = F)
 crit
-result(test_stat,crit)
+analyse_hypo(test_stat,'one_tail',crit)
 
 # 6. A survey is conducted by a gaming company that makes three video games. It wants to know if the preference of game depends on the gender of the player. Total number of participants is 1000. Here is the survey result
 # Game A
@@ -216,7 +244,7 @@ test_stat
 
 crit = qchisq(0.05,3,lower.tail = F)
 crit
-result(test_stat,crit)
+analyse_hypo(test_stat,'one_tail',crit)
 
 # complete this
 
@@ -238,7 +266,8 @@ crit1
 crit2 = qchisq(0.025,19,lower.tail = F)
 crit2
 
-result_two_tail_chi(t,crit1,crit2) 
+analyse_hypo_two_tail_chi(t,crit1,crit2) 
+analyse_hypo(t,'two_tail',crit1,crit2) 
 
 
 # 8. laptop computer maker uses battery packs supplied by two companies, A and B. While both brands have the same average 
@@ -268,10 +297,14 @@ crit2 = qf(p = 0.95,df1 = 9,df2 = 9)
 crit1
 crit2
 
-result_two_tail_chi(t,crit1,crit2) 
+analyse_hypo_two_tail_chi(t,crit1,crit2) 
+analyse_hypo(t,'two_tail',crit1,crit2) 
 
 # 
-# 9. A car crash research team wants to examine the safety of compact cars, intermediate and full size cars. Given below are the hypothetical values of the mean pressure applied to the drivers head during the crash test for each of the car types. Check whether means are equal for each type of these cars at 5% significance level.
+# 9. A car crash research team wants to examine the safety of compact cars, intermediate and full size cars. 
+# Given below are the hypothetical values of the mean pressure applied to the drivers head during the crash test for each of the 
+# car types. Check whether means are equal for each type of these cars at 5% significance level.
+
 # Compact
 # 643
 # 655
@@ -302,14 +335,47 @@ ssw = sum((ct-mean(ct))^2) + sum((it-mean(it))^2) + sum((fs-mean(fs))^2)
 ssw
 
 ssb  = sst - ssw
+ssb
 
-m = 3
-n = 3
+m = 3 # 3 samples
+n = 3 # 3 values per sample
 df_ssb = (m-1)
 df_ssw = m*(n-1)
 f_stat = (ssb/df_ssb)/(ssw/df_ssw)
 f_stat
 
 crit = qf(0.05,(m-1),(m*n-m),lower.tail = F)
+crit
 
 # reject null hypo 
+
+
+# https://www.youtube.com/watch?v=_Qlxt0HmuOo
+# straw example - external source
+# H0: avg straw diameter = 4mm
+# H1: avg straw diameter != 4mm
+
+m = 4
+n=100
+alpha = 0.01
+c = 0.99
+#  c is level of confidence, alpha is level of significance and alpha = 1-c
+
+# doctor example - external source
+# H0: m <= 10
+# H1: m > 10
+
+alpha = 0.05
+
+  
+# school example - external source
+# H0: p >= 0.60 -> proportion when percentage is given
+# H1: p < 60
+
+alpha = 0.02
+n = 25
+
+
+# ######################
+qt(0.025,9)
+
