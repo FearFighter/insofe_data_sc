@@ -159,6 +159,9 @@ MergedData<-merge(Customer_Demographics,Customer_Bank,
 A=data.frame(Name=c("Alpha","Beta","Gamma","Delta"), Age=c(24,25,23,28))
 
 B=data.frame(Name=c("Alpha","Gamma","Zeta","Psi"),Edu=c("M","D","B","H"))
+
+write.csv(A,"A.csv")
+write.csv(B,"B.csv")
 MergedData1<-merge(A,B,
                   by.x="Name",by.y="Name",
                   all.x=TRUE) #left (outer) join
@@ -268,7 +271,10 @@ write.csv(final_data,"final_data.csv")
 ##########Handling dates
 #In this data set we are working with Date of birth and not age
 #How to extract age from date of birth
+install.packages("lubridate")
 library(lubridate)
+options(tz="Asia/Kolkata")
+MergedData_imputed
 MergedData_imputed$DOB<-as.character(MergedData_imputed$DOB)
 head(MergedData_imputed$DOB)<-strptime(MergedData_imputed$DOB,format="%m/%d/%Y")
 MergedData_imputed$Age<-year(today())-year(MergedData_imputed$DOB)
