@@ -1,0 +1,176 @@
+---
+title: "Simple Linear Regression"
+author: "INSOFE Lab"
+date: "02nd Sep 2018"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+
+---
+
+**NOTE** Before starting, please remember to clear your environment, you can do that by running the following code chunk
+
+```{r}
+
+rm(list = ls(all=TRUE))
+
+```
+
+# Agenda 
+
+* Reading & Understanding the Data
+
+* Data Description
+
+* Basic Stats
+
+* Covariance and Correlation
+
+* Linear Regression
+
+* Plotting the data
+
+* Summary Statistics
+
+* Basic assessment of the model
+
+
+# Reading & Understanding the Data
+
+Read the cars dataset which comes in built in R.
+
+```{r}
+
+data(cars);
+attach(cars);
+
+
+```
+
+# Data Description
+Basic description about the dataset
+
+```{r}
+
+dim(cars); #Size of data
+names(cars); #names of attributes in the cars dataframe
+summary(cars);
+head(cars);
+
+```
+
+We take the speed to be the independent variable (based on domain knowledge) and stopping distance as the dependent variable
+
+# Basic Stats
+Compute basic statistics
+
+
+```{r}
+
+print("Mean and standard deviation of speed : ");
+print(toString(mean(speed)));
+print(toString(sd(speed)));
+
+print("Mean and standard deviation of dist : ");
+print(toString(mean(dist)));
+print(toString(sd(dist)));
+
+
+```
+
+# Covariance and Correlation
+
+*Compute the covariance and correlation between dependent and independent variables
+*Verify that these values match the covariance and correlation computed using Excel.
+*You are encouraged to ask other questions (not just about prices of cars) and answer them using the dataset below.
+
+```{r}
+
+covariance_speed_dist = cov(speed,dist);
+correlation_speed_dist = cor(speed,dist);
+
+# verifying the formula
+r= covariance_speed_dist/(sd(speed)*sd(dist))
+r
+
+print("Covariance between speed and dist = ");
+print(toString(covariance_speed_dist));
+
+print("Correlation between speed and dist = ");
+print(toString(correlation_speed_dist));
+
+```
+
+# Linear Regression
+'lm' function is used for Linear Regression
+
+```{r}
+linefit = lm(dist~speed,data=cars);
+linefit
+
+linefit_trial = lm(dist~.,data=cars);
+linefit_trial
+```
+
+# Plotting the data
+
+* Plot Distance vs Speed.
+
+* Superimpose the Predicted line over original data.
+
+
+```{r}
+
+plot(speed,dist,xlab="Speed (mph)",ylab="Stopping distance (ft)",main="Scatter plot of stopping distance vs speed for cars data\n + best fit line superimposed");
+abline(linefit,col="steelblue",lty=1,lwd=4); 
+grid(10,10,lwd=2);
+
+```
+
+# Summary Statistics
+Read off key outputs of the fitted model using the summary function
+
+```{r}
+
+summary(linefit);
+
+```
+
+#Basic assessment of the model
+Is the model significant?
+Are the individual coefficients significant?
+What is the RSquared value?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

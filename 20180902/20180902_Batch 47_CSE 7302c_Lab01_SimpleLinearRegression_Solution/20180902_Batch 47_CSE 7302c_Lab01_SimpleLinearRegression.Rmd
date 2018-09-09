@@ -1,0 +1,278 @@
+---
+title: "Simple Linear Regression - Toyota Dataset"
+author: "INSOFE Lab"
+date: "8th July, 2018"
+output:
+  html_document:
+    toc : yes
+    toc_depth : 3
+    toc_float : yes
+---
+
+```{r}
+# First things first, clean your R environment
+rm(list=ls(all=TRUE))
+```
+
+# _*Simple Linear Regression Model*_
+# Read or load data
+```{r}
+setwd("/Users/amithprasad/repos/insofe_data_sc/20180902/20180902_Batch 47_CSE 7302c_Lab01_SimpleLinearRegression_Solution")
+Toyota = read.csv("Toyota_SimpleReg.csv")
+names(Toyota)
+
+```
+
+Now, you have to do a set of tasks that vary from data set to data set, from converting the data types of variables to imputing missing values. The steps followed below are suitable only for this dataset.
+
+# EDA - Exploratory Data Analysis
+1. Look at the number of rows and columns
+2. Column names
+3. Look at the structure of the dataset using `str()` function 
+4. Look at the summary of the dataset using `summary()` function
+5. Checking for 'NA' values
+
+## 1. Look at the number of rows and columns
+
+```{r}
+dim(Toyota)
+```
+
+## 2. Column names
+
+```{r}
+colnames(Toyota)
+```
+
+## 3. Look at the structure of the dataset using `str()` function
+
+```{r}
+str(Toyota)
+```
+
+## 4. Look at the summary of the dataset using `summary()` function
+
+```{r}
+summary(Toyota)
+```
+
+## 5. Checking for 'NA' values
+```{r}
+sum(is.na(Toyota))
+```
+* The dataset doesn't have any NA values
+
+ - Before going forward, we will rename the column 'Age_06_15' to 'Age'
+```{r}
+colnames(Toyota)[4] = 'Age'
+``` 
+ 
+
+# Define the independent and dependent variables
+- In Linear Regression, the dependent variable is continuous variable.
+- For Simple Linear Regression we need one dependent and one independent variable
+- For this example, we will consider the Price as dependent variable and the Age of the car as the independent variable.
+
+# Scatter Plot
+* Plot the Dependent and  Independent variables
+
+- The type of plot used to see the relationship between two continuous variables is called as _*Scatter Plot*_
+
+```{r}
+plot(Toyota$Age,Toyota$Price,
+      main = "Age vs. Price",
+     xlab = "Age (months)",
+     ylab = "Price ($)",
+     col = "brown",lwd=1)
+grid(10,10,lwd = 1,col='Black')
+```
+
+- What do you infer from the plot?
+
+# Covariance 
+
+```{r}
+cov(Toyota$Age,Toyota$Price)
+
+```
+
+
+- What does the value of the covariance signify?
+
+# Correlation 
+
+* Correlation of two variables gives a very good estimate as to how the two variables change together, this also helps us have an idea as to how well a Linear Regression Model will be able to predict the dependent variable.
+
+```{r}
+cor_data = cor(Toyota[,c(3,4)])
+cor_data
+```
+
+## Corrplot
+```{r}
+library(corrplot)
+corrplot(cor_data, method = "number")
+```
+
+
+ What does the value of the correlation signify?
+
+- The correlation is -0.88 between Price and Age of the car. Since the value is close to 1 and has a -ve sign, we can conclude that the variables (Price and Age) are strongly negatively correlated.
+
+# Model Building
+
+## Train Test Split (70:30)
+
+```{r}
+rows = seq(1,nrow((Toyota)))
+trainRows = sample(rows,(70*nrow(Toyota))/100)
+cars_train = Toyota[trainRows,] 
+cars_test = Toyota[-trainRows,]
+dim(cars_train)
+dim(cars_test)
+
+```
+
+## Building the Linear Regression Model
+
+- `lm(F=formula, data)` is the function in R to build a Linear Regression model
+
+```{r}
+
+names(cars_train)
+LinReg = lm(Price~Age,data=cars_train)
+```
+
+## Read the model summary
+
+- Summary displays the following: 
+    * Formula given (Call) - Shows the function call used to compute the regression model.
+    * Residuals. Provide a quick view of the distribution of the residuals, which by definition have a mean zero.
+    * Coefficients and the test statistic values. Shows the regression beta coefficients and their statistical significance. Predictor variables, that are significantly associated to the outcome variable, are marked by stars.
+    * Residual Standard Error (RSE)
+    * Multiple R- Squared (which we generally refer to as R squared or Co-efficient of Determination)
+    * F statistic - Test for Model
+    
+  
+  - The statistical hypothesis is as follows :
+  
+    * Null Hypothesis (H0): the coefficients are equal to zero (i.e., no relationship between x and y)
+    * Alternative Hypothesis (Ha): the coefficients are not equal to zero (i.e., there is some relationship between x and y)
+
+
+```{r}
+summary(LinReg)
+```
+
+- Try answering these questions (Interpreting model output) -
+    1. Is the Slope significant?
+    2. Is the Model significant?
+    3. What is the predictive power of the model (R-squared)?
+
+
+
+- In our example, both the p-values for the intercept and the predictor variable are highly significant, so we can reject the null hypothesis and accept the alternative hypothesis, which means that there is a significant association between the predictor and the outcome variables.
+
+```{r}
+# To extract the residuals:
+head(LinReg$residuals)
+```
+
+
+```{r}
+# To extract the train predictions:
+head(LinReg$fitted.values)
+```
+
+## Plot the data points and the line of best fit
+
+```{r}
+
+plot(Toyota$Age,Toyota$Price, col = "brown",lwd = 1,
+     xlab="Age (months)",ylab="Price ($)",main="Age vs Price")
+abline(LinReg,col="blue",lty=1,lwd=2)
+grid(10,10,lwd=1,col='Green')
+
+```
+
+## Residual Analysis
+
+### Plot residuals
+
+* Residual is nothing but the difference between the predicted value and the actual value i.e $$y_i-\hat{y}_i$$
+
+    - where  i is the $i^{th}$ training sample
+
+We can extract the residuals from the linear model and plot them.
+```{r}
+plot(LinReg$residuals,ylab="Residuals",main="Residuals",col = 'brown', lwd = 1)
+grid(10,10,lwd = 1)
+
+```
+
+### Plot residuals vs fitted values
+- This will help us visualize how the residuals are distributed in relation to the fitted values
+
+```{r}
+plot(LinReg$fitted.values,LinReg$residuals,main = "Residual vs Predicted values", col = 'brown',lwd = 1,
+xlab ="Predicted Values / Fitted Values", ylab = "Residuals")
+abline(h = 0,col = 'blue',lwd  =2)
+# lines(xPlot,yPlot,lwd=2,col="blue")
+grid(10,10,lwd=1)
+```
+
+### Residual plots with R plot function
+
+* In R four diagnostic plots can be obtained by calling the plot function on fitted model obtained using lm
+
+```{r}
+# par(mfrow = c(2,2)) # par helps us set graphical parameters, refer to help for more info on this
+plot(LinReg,lwd =1,col = 'brown')
+```
+
+## Test Data
+
+```{r}
+test_prediction = predict(LinReg, cars_test)
+test_actual = cars_test$Price
+```
+
+### Evaluating the Model
+
+```{r}
+library(DMwR)
+# Error verification on train data
+regr.eval(cars_train$Price, LinReg$fitted.values)
+
+# Error verification on test data
+regr.eval(test_actual, test_prediction)
+
+
+# Confidence and Prediction Intervals
+#- Confidence Intervals talk about the average values intervals
+#- Prediction Intervals talk about the all individual values intervals
+#```{r}
+Conf_Pred = data.frame(predict(LinReg_transf, cars_test, interval="confidence",level=0.95))
+Pred_Pred = data.frame(predict(LinReg_transf, cars_test, interval="prediction",level=0.95))
+
+names(Conf_Pred)
+
+```
+
+```{r}
+plot(cars_test$Age, cars_test$Price_transf_test,main = "Price and Age, with Regression Line and Intervals" ,xlab = "Age (months)", ylab = "Price  ($)", col = 'brown')
+
+points(test_newdata$Age,Conf_Pred$fit,type="l", col="green", lwd=2)
+points(test_newdata$Age,Conf_Pred$lwr,pch="-", col="red", lwd=4)
+points(test_newdata$Age,Conf_Pred$upr,pch="-", col="red", lwd=4)
+points(test_newdata$Age,Pred_Pred$lwr,pch="-", col="blue", lwd=4)
+points(test_newdata$Age,Pred_Pred$upr,pch="-", col="blue", lwd=4)
+grid(10,10,lwd =1)
+```
+
+- Confidence intervals tell you about how well you have determined the mean. Assume that the data really are randomly sampled from a Gaussian distribution. If you do  this many times, and calculate a confidence interval of the mean from each sample,  you'd expect about 95 % of those intervals to include the true value of the  population mean. The key point is that the confidence interval tells you about the likely location of the true population parameter.
+
+- Prediction intervals tell you where you can expect to see the next data point sampled. Assume that the data really are randomly sampled from a Gaussian distribution. Collect a sample of data and calculate a prediction interval. Then sample one more value from the population. If you do this many times, you'd expect that next value to lie within  that prediction interval in 95% of the samples.The key point is that the prediction  interval tells you about the distribution of values, not the uncertainty in determining  the population mean.
+
+
+

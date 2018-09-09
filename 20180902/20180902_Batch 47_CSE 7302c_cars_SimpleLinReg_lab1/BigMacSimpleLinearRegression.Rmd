@@ -1,0 +1,131 @@
+---
+title: "BigMac Simple Linear Regression"
+author: "INSOFE"
+date: "2nd Sep, 2018"
+output:
+  html_document:
+    toc : yes
+    toc_depth : 3
+    toc_float : yes
+---
+
+```{r}
+# First things first , clean your R environment
+rm(list=ls())
+```
+
+# _*Simple Linear Regression Model*_
+# Read or load data
+```{r}
+dataFile = "BigMac-NetHourlyWage.csv"
+BigMac = read.delim(dataFile,sep=",",header=TRUE)
+```
+# Define the independent and dependent variables
+
+- In Linear Regression, the dependent variable is continuous variable.
+- Simple Linear Regression has only one independent variable
+
+```{r}
+names(BigMac)           # Display the column names
+xvar = names(BigMac)[2] # BigMacPriceDollars
+yvar = names(BigMac)[3] # NetHourlyWageDollars
+
+```
+* Summary of the data and look for any missing values:
+
+```{r}
+
+str(BigMac)        # Structure of the dataset
+summary(BigMac)    # Summary of the dataset
+
+```
+
+* No missing values
+
+# Plot the dependent and independent variables
+
+- The type of plot used to see the relationship between two continuous variables is called a _*Scatter Plot*_
+
+```{r}
+plot(BigMac$BigMacPriceDollars,BigMac$NetHourlyWageDollars,
+      main = "NetHourlyWageDollars vs BigMacPriceDollars",
+     ylab = "NetHourlyWageDollars",
+     xlab = "BigMacPriceDollars",
+     col = "brown",lwd = 2)
+```
+
+# Correlation of the variables
+
+* Correlation of two variables gives a very good estimate as to how the two variables change together, this also helps us have an idea as to how well a Linear Regression Model will be able to predict the dependent variable.
+
+```{r}
+cor(BigMac$NetHourlyWageDollars,BigMac$BigMacPriceDollars)
+```
+
+# Building the Linear Regression Model
+
+- `lm(F=formula, data)` is the funtion syntax in R to build a Linear Regression model
+
+```{r}
+lineFit = lm(NetHourlyWageDollars~BigMacPriceDollars,data=BigMac)
+```
+
+## Read the model summary
+- Summary displays the following 
+    - Formula given(Call)
+    - 5 point summary for the residuals
+    - The coefficients and the test statistic values for them
+    - Residual Standard Error
+    - Multiple R- Squared ( Which we generally refer to as R squared or Co-efficient of Determination)
+    - Test for Model -> F statistic
+    
+```{r}
+summary(lineFit)
+```
+
+- Try Answering these questions
+    1. Is the slope significant?
+    2. Is the Model significant?
+    3. What is the predictive power of the model (R-squared)
+  
+# Plot the data points and the line of best fit
+
+```{r}
+
+plot(BigMac$BigMacPriceDollars,BigMac$NetHourlyWageDollars, col = "brown",lwd = 2,
+     xlab="BigMacPriceDollars",ylab="NetHourlyWageDollars",main="NetHourlyWageDollars vs BigMacPriceDollars: Best fit line")
+abline(lineFit,col="blue",lty=1,lwd=2);
+grid(10,10,lwd=1)
+```
+
+# Residual Analysis
+
+## Plot residuals
+
+* Residual is nothing but the difference between the predicted value and the actual value i.e $$y_i-\hat{y}_i$$
+
+ - where  i is the $i^{th}$ training sample
+
+We can extract the residuals from the linear model and plot them.
+```{r}
+plot(lineFit$residuals,ylab="Residuals",main="Residuals",col = 'brown', lwd = 2)
+```
+
+## Plot residuals vs fitted values
+- This will help us visualize how the residuls are distrubuted in relation to the fitted values
+```{r}
+plot(lineFit$fitted.values,lineFit$residuals,main = "Residual vs Predicted values", col = 'brown',lwd = 2,
+xlab ="Predicted Values / Fitted Values", ylab = "Residuals")
+abline(h = 0,col = 'blue',lwd  =2)
+grid(10,10,lwd=1)
+
+```
+
+## Residual plots with R plot function
+
+* In R four diagnostic plots can be obtained by calling the plot function on fitted model obtained using lm
+
+```{r}
+par(mfrow = c(2,2)) # par helps us set graphical parameters, refer to help for more info on this
+plot(lineFit)
+```
