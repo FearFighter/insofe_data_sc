@@ -44,8 +44,8 @@ rm(list = ls(all=TRUE))
 Make sure the dataset is located in your current working directory, else you can change your working directory using the "setwd()" function.
 
 ```{r}
-
-
+bank_data <- read.table("bank.txt", header=T, sep=";")
+head(bank_data)
 ```
 
 
@@ -99,7 +99,7 @@ __Response Variable (desired target):__
 * The dataset has 4521 observations and 17 variables
 
 ```{r}
-
+str(bank_data)
 
 ```
 
@@ -108,14 +108,14 @@ __Response Variable (desired target):__
 
 ```{r}
 
-
+summary(bank_data)
 ```
 
 * Use the head() and tail() functions to get a look at the data
 
 ```{r}
-
-
+head(bank_data)
+tail(bank_data)
 
 ```
 
@@ -128,7 +128,7 @@ __Response Variable (desired target):__
 
 ```{r}
 
-
+sum(is.na(bank_data))
 ```
 
 ## Train/Test Split
@@ -139,20 +139,30 @@ __Response Variable (desired target):__
 
 
 ```{r}
-
-
+library(caret)
+set.seed(0)
 
 # The argument "y" to the createDataPartition() function is the response variable
 
 # The argument "p" is the percentage of data that goes to training
 
 # The argument "list" should be input a boolean (T or F). Remember to put list = F, else the output is going to  be a list and your data can't be subsetted with it
+train_rows <- createDataPartition(bank_data$y, p = 0.7, list = F)
+train_data <- bank_data[train_rows, ]
+test_data <- bank_data[-train_rows, ]
 
 
 ```
 
 ```{r}
+str(train_data)
+dim(train_data)
 
+```
+
+```{r}
+str(test_data)
+dim(test_data)
 
 ```
 
@@ -165,6 +175,7 @@ __Response Variable (desired target):__
 * Build a model using all the variables, excluding the response variable, in the dataset
 
 ```{r}
+log_reg <- glm(y~., data = train_data, family = binomial)
 
 
 
@@ -175,10 +186,17 @@ __Response Variable (desired target):__
 
 ```{r}
 
-
+summary(log_reg)
 
 ```
+```{r}
+Devaince_residuals = residuals(log_reg, "deviance")
+summary(Devaince_residuals)
+```
 
+```{r}
+logLik(log_reg)
+```
 
 
 # ROC
@@ -202,19 +220,20 @@ __Steps to create an ROC plot :__
 # Use the argument 'type = "response"' in the predict function to get a list of predictions between 0 and 1
 
 # By default if no dataset is mentioned, training data is used
-
+prob_train <- predict(log_reg, type = "response")
 
 ```
 
 2) Using the ROCR package create a "prediction()" object
 
 ```{r}
-
+library(ROCR)
 
 # The prediction object takes the probability scores and the original levels for theses data as input
 
 
 # The prediction object contains a list of predictions (probability scores), original class labels, cutoffs, false positives, true positives, true negatives, false negatives, No. of positive predictions and No. of negative predictions corresponding to these cutoffs. Class distribution in the dataset.
+pred <- prediction(prob_train, train_data$y)
 
 
 ```
@@ -226,7 +245,9 @@ __Steps to create an ROC plot :__
 # The performance() function from the ROCR package helps us extract metrics such as True positive rate, False positive rate etc. from the prediction object, we created above.
 
 # Two measures (y-axis = tpr, x-axis = fpr) are extracted
+perf <- performance(pred, measure="tpr", x.measure="fpr")
 
+# perf <- performance(pred, measure="tnr", x.measure="fnr")
 
 
 ```
@@ -235,7 +256,7 @@ __Steps to create an ROC plot :__
 
 ```{r}
 
-
+plot(perf, col=rainbow(10), colorize=T, print.cutoffs.at=seq(0,1,0.05))
 ```
 
 * Extract the AUC score of the ROC curve and store it in a variable named "auc"
@@ -243,10 +264,13 @@ __Steps to create an ROC plot :__
 * Use the performance() function on the prediction object created above using the ROCR package, to extract the AUC score
 
 ```{r}
+perf_auc <- performance(pred, measure="auc")
 
 
 # Access the auc score from the performance object
+auc <- perf_auc@y.values[[1]]
 
+print(auc)
 
 ```
 
@@ -264,7 +288,8 @@ __Steps to create an ROC plot :__
 * After choosing a cutoff value of 0.1, let's predict the class labels on the test data using our model
 
 ```{r}
-
+prob_test <- predict(log_reg, test_data, type = "response")
+preds_test <- ifelse(prob_test > 0.1, "yes", "no")
 
 ```
 
@@ -278,7 +303,11 @@ __Steps to create an ROC plot :__
 * Create a confusion matrix using the table() function
 
 ```{r}
+test_data_labs <- test_data$y
 
+conf_matrix <- table(test_data_labs, preds_test)
+
+print(conf_matrix)
 
 ```
 
@@ -289,7 +318,8 @@ __Steps to create an ROC plot :__
 $${Specificity} = \frac{Number~of~True~Negatives}{Number~of~True~Negatives + Number~of~False~Positives}$$
 
 ```{r}
-
+specificity <- conf_matrix[1, 1]/sum(conf_matrix[1, ])
+print(specificity)
 
 
 ```
@@ -302,7 +332,9 @@ $${Specificity} = \frac{Number~of~True~Negatives}{Number~of~True~Negatives + Num
 $${Sensitivity} = \frac{Number~of~True~Positives}{Number~of~True~Positives + Number~of~False~Negatives}$$
 
 ```{r}
+sensitivity <- conf_matrix[2, 2]/sum(conf_matrix[2, ])
 
+print(sensitivity)
 
 ```
 
@@ -313,7 +345,9 @@ $${Sensitivity} = \frac{Number~of~True~Positives}{Number~of~True~Positives + Num
 $${Accuracy} = \frac{Number~of~True~Positives +Number~of~True~Negatives}{Number~Of~Subjects~in~the~Population}$$
 
 ```{r}
+accuracy <- sum(diag(conf_matrix))/sum(conf_matrix)
 
+print(accuracy)
 
 ```
 
@@ -323,12 +357,23 @@ $${Accuracy} = \frac{Number~of~True~Positives +Number~of~True~Negatives}{Number~
 
 ```{r}
 
+library(caret)
 
 # Using the argument "Positive", we can get the evaluation metrics according to our positive referene level
-
-
+str(preds_test)
+unique(preds_test)
+preds_test_factor = as.factor(preds_test)
+str(preds_test_factor)
+str(test_data$y)
+confusionMatrix(preds_test_factor, test_data$y, positive = "yes")
 
 ```
 
+
+Running the model dropping models
+
+```{r}
+
+```
 
 

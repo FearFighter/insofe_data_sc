@@ -114,6 +114,7 @@ Try this out
 * pairs(~CRIM+ZN+INDUS+NOX+RM+LSTAT,data=boston_housing_data,main="Scatterplot matrix with selected attributes")
 
 ```{r fig.height= 8, fig.width = 9}
+pairs(~CRIM+ZN+INDUS+NOX+RM+LSTAT,data=housing_data,main="Scatterplot matrix with selected attributes")
 
 par(mfrow = c(2,2))
 
