@@ -1,0 +1,116 @@
+---
+title: "Arima_Step_by_Step"
+author: "Insofe Instructor"
+date: "September 22, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+rm(list=ls(all=TRUE))
+library(forecast)
+```
+
+```{r}
+setwd("I:/DATA-SCIENCE/FACULTY/BATCH-47/CSE7302c-Statistics and Probability in Decision Modeling/TimeSeries/20180922_Batch47_CSE7302c_Time_Series_LabActivity")
+miles = read.csv("us-air-carrier-traffic-statistic.csv")
+miles
+```
+#ARIMA
+##Step-by-step ARIMA model building
+## Step 1: Plot timeseries (in terms of ARIMA, it is an ARIMA(0,0,0))
+```{r}
+milestimeseries <- ts(miles, frequency = 12, start = c(1996,1))
+milestimeseries
+par(mfrow = c(1, 1))
+plot(milestimeseries)
+```
+
+## Step 2: Plot ACF and PACF to get preliminary understanding of the process
+```{r}
+par(mfrow = c(1, 2))
+acf(milestimeseries)
+pacf(milestimeseries)
+```
+
+## Step 3: The suspension bridge pattern in ACF suggests both nonstationarity and strong seasonality.  Perform a non-seasonal difference to give an ARIMA(0,1,0) model
+```{r}
+par(mfrow = c(1, 1))
+milestimeseriesdiff1 <- diff(milestimeseries, differences = 1)
+milestimeseriesdiff1
+plot(milestimeseriesdiff1)
+```
+
+## Step 4: Check ACF and PACF to explore remaining dependencies
+```{r}
+par(mfrow = c(1, 2))
+acf(milestimeseriesdiff1)
+pacf(milestimeseriesdiff1)
+```
+
+## Step 5: The differenced series looks stationary but has strong seasonal lags. Perform a seasonal differencing on the original time series (ARIMA(0,0,0)(0,1,0)12)
+```{r}
+par(mfrow = c(1, 1))
+milestimeseriesseasonaldiff1 <- diff(milestimeseries, lag = 12, differences=1)
+milestimeseriesseasonaldiff1
+plot(milestimeseriesseasonaldiff1)
+```
+
+## Step 6: Check ACF and PACF for seasonally differenced data to explore remaining dependencies
+```{r}
+par(mfrow = c(1, 2))
+acf(milestimeseriesseasonaldiff1)
+pacf(milestimeseriesseasonaldiff1)
+```
+
+## Step 7: Strong positive autocorrelation indicates need for either an AR component or a non-seasonal differencing.  Perform a non-seasonal differencing. ARIMA(0,1,0)(0,1,0)12
+```{r}
+par(mfrow = c(1, 1))
+milestimeseriesSeasNoSeasdiff1 <- 
+  diff(milestimeseriesseasonaldiff1, differences=1)
+milestimeseriesSeasNoSeasdiff1
+plot(milestimeseriesSeasNoSeasdiff1)
+```
+
+## Step 8: Check ACF and PACF to explore remaining dependencies
+```{r}
+par(mfrow = c(1, 2))
+acf(milestimeseriesSeasNoSeasdiff1)
+pacf(milestimeseriesSeasNoSeasdiff1)
+```
+
+## Step 9: ACF and PACF show significant lag-1, which then cutoff, requiring an AR(1) and an MA(1) term.  Also, the significant lag at the seasonal period is negative, requiring a SeasonalMA(1) term
+```{r}
+milesArima1 <- Arima(milestimeseries, order = c(1,1,1),
+                     seasonal = c(0,1,1), include.drift = FALSE)
+milesArima1
+
+```
+
+## Step 10: Check residuals to ensure they are white noise
+```{r}
+par(mfrow = c(1, 2))
+acf(milesArima1$residuals, lag.max = 24)
+pacf(milesArima1$residuals, lag.max = 24)
+Box.test(milesArima1$residuals, lag=24, type="Ljung-Box")
+```
+
+## Step 11: Start forecasting
+```{r}
+par(mfrow = c(1, 1))
+milestimeseriesforecastsArima1 <- forecast(milesArima1, 
+                                                 h=36)
+plot(milestimeseriesforecastsArima1)
+milestimeseriesforecastsArima1
+```
+
+# Auto ARIMA - Automated functions are available
+```{r}
+milesAutoArima <- auto.arima(milestimeseries,ic='aic')
+milesAutoArima
+milestimeseriesforecastsAutoArima <- forecast(milesAutoArima, 
+                                                    h=36)
+plot(milestimeseriesforecastsAutoArima)
+milestimeseriesforecastsAutoArima
+```

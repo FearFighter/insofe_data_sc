@@ -1,0 +1,115 @@
+---
+title: "Prediction of Term Deposit Subscription"
+author: "INSOFE Lab Activity on Logistic Regression with Significat Fields"
+date: "9th September 2018"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+---
+
+Running the model dropping insignificant columns
+
+```{r}
+bank_data_new <- read.table("/Users/amithprasad/repos/insofe_data_sc/20180909/20180909_Batch47_CSE7302c_LogisticRegression_lab/bank.txt", header=T, sep=";")
+head(bank_data_new)
+
+```
+```{r}
+insig = subset(bank_data_new,select=c(age,education,default,balance,day,pdays,previous))
+sig = subset(bank_data_new,select= -c(age,education,default,balance,day,pdays,previous))
+```
+
+```{r}
+str(sig)
+```
+
+```{r}
+set.seed(800)
+
+train_rows <- createDataPartition(sig$y, p = 0.7, list = F)
+train_data <- sig[train_rows, ]
+test_data <- sig[-train_rows, ]
+
+
+```
+
+```{r}
+log_reg_new = glm(y~.,train_data,family = 'binomial')
+summary(log_reg_new)
+```
+```{r}
+resid = residuals(log_reg_new,"deviance")
+summary(resid)
+
+```
+
+```{r}
+logLik(log_reg_new)
+```
+
+```{r}
+prob_train <- predict(log_reg_new, type = "response")
+```
+
+```{r}
+library(ROCR)
+pred <- prediction(prob_train, train_data$y)
+
+```
+
+```{r}
+
+# The performance() function from the ROCR package helps us extract metrics such as True positive rate, False positive rate etc. from the prediction object, we created above.
+
+# Two measures (y-axis = tpr, x-axis = fpr) are extracted
+perf <- performance(pred, measure="tpr", x.measure="fpr")
+
+# perf <- performance(pred, measure="tnr", x.measure="fnr")
+
+
+```
+
+```{r}
+
+plot(perf, col=rainbow(10), colorize=T, print.cutoffs.at=seq(0,1,0.05))
+```
+
+
+```{r}
+perf_auc <- performance(pred, measure="auc")
+
+
+# Access the auc score from the performance object
+auc <- perf_auc@y.values[[1]]
+
+print(auc)
+
+```
+
+
+```{r}
+prob_test <- predict(log_reg_new, test_data, type = "response")
+preds_test <- ifelse(prob_test > 0.1, "yes", "no")
+
+```
+
+## Automated Computation through Caret
+
+```{r}
+
+library(caret)
+
+# Using the argument "Positive", we can get the evaluation metrics according to our positive referene level
+str(preds_test)
+unique(preds_test)
+preds_test_factor = as.factor(preds_test)
+str(preds_test_factor)
+str(test_data$y)
+confusionMatrix(preds_test_factor, test_data$y, positive = "yes")
+
+```
+
+So the model with only significant fioelds based on p value performs better than including all the fileds
+

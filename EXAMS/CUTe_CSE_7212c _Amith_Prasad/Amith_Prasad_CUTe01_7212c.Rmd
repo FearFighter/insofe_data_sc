@@ -1,0 +1,204 @@
+---
+title: "Amith_Prasad_CUTe01_7212c"
+author: "Amith Prasad"
+date: "9/1/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# a. Import the ???go_tracks.???csv??? file into R.
+```{r cars}
+rm(list=ls(all=TRUE)) #clears the environment
+
+getwd()
+setwd("/Users/amithprasad/repos/insofe_data_sc/CUTe_CSE_7212c _Amith_Prasad") #setting the working directory
+
+#Importing csv
+data<-read.csv("dataset/go_tracks.csv",header=T,na.strings = c(NA,"?"))
+head(data)
+
+```
+# b. Look at the structure and summary of the datasets. Observe the data and
+# report your findings as comments in your R file.
+```{r}
+str(data)
+```
+
+```{r}
+summary(data)
+```
+
+```{r}
+dim(data)
+```
+```{r}
+unique(data$rating_weather)
+```
+
+```{r}
+unique(data$linha)
+```
+
+```{r}
+sum(is.na(data))
+```
+
+```{r}
+# There are 163 rows and 10 columns
+# Looking at the data the 
+# Numberical fields are:
+# speed
+# time
+# distance
+# 
+# Categorical Fields are:
+# id
+# id_android
+# rating
+# rating_bus
+# rating_weather
+# car_or_bus
+# linha
+
+# rating has 5 levels
+# rating_bus has 5 levels
+# rating_weather has 3 levels
+# car_or_bus hash 3 levels
+# linha has 23 levels
+
+# there are 19 NAs(missing values) in speed, time, distance, rating, rating_bus, rating_weather and car_or_bus will have to impute them
+```
+
+#c. Convert the attributes into appropriate data types
+```{r}
+num_data = subset(data,select=c(speed,time,distance))
+cat_data = subset(data,select=-c(speed,time,distance))
+```
+
+```{r}
+# converting to factor type for categorical data
+cat_data = data.frame(
+  apply(cat_data,2,function(x){as.factor(x)}))
+str(cat_data)
+```
+
+```{r}
+# converting to factor type for categorical data
+num_data = data.frame(
+  apply(num_data,2,function(x){as.numeric(x)}))
+str(num_data)
+```
+
+# d. Impute the na values, ??????? should be treated as na.  
+```{r}
+# have converted ? to NA while reading the file
+# linha column has almost half the values empty so imputing the column will result in too much synthetic data
+library(DMwR)
+manyNAs(data, 0.1) 
+
+# numeric data imputation
+num_data_imputed = centralImputation(num_data) #Cenral Imputation
+
+# numeric data imputation
+cat_data_imputed = centralImputation(cat_data) #Cenral Imputation
+
+```
+
+```{r}
+summary(num_data_imputed)
+str(num_data_imputed)
+```
+
+# e. Write a user-defined function which takes in a numeric attribute and returns
+# the range of that attribute. (Do not use any inbuilt functions like range, max, min or apply functions etc).
+# Apply the function you made and find the range of the following attributes in this dataset - ???speed???, ???time??? and ???distance???.
+```{r}
+
+custom_range = function(x){
+  sorted_x = sort(x,decreasing = F)
+  min = sorted_x[1]
+  max = sorted_x[NROW(sorted_x)]
+  print("min: ")
+  print(min)
+  print("max: ")
+  print(max)
+  print("range: ")
+  print(max-min)
+}
+
+custom_range(num_data_imputed$speed)
+custom_range(num_data_imputed$time)
+custom_range(num_data_imputed$distance)
+```
+
+# f. Use any of the apply functions in R and find the mean of the attributes - ???speed??? and ???distance???.
+
+```{r}
+mean(num_data_imputed$speed)
+mean(num_data_imputed$distance)
+
+apply(num_data_imputed[1],2,mean)
+apply(num_data_imputed[3],2,mean)
+```
+
+
+# g. Use a ???for loop??? to loop through the values in the attribute ???distance??? and find the maximum distance travelled. You should not use the inbuilt function for this.
+
+```{r}
+max = 0
+for (x in num_data_imputed$distance) {
+  if (x > max){
+    max = x
+  }
+}
+print(max)
+```
+# h. Access the rows 1-10 for the columns - ???speed???, ???time???, ???distance???. Save the result into a new df called GPS_df. Is it a numeric or a character df? Find the sum of the columns of the newly created df and report your results.
+
+```{r}
+GPS_df=num_data_imputed[1:10,]
+class(GPS_df$speed)
+class(GPS_df$time)
+class(GPS_df$distance)
+# its numeric dataframe
+colSums(GPS_df)
+```
+
+# i. Calculate the Variance for all the numeric columns in GPS_df.
+```{r}
+# variance
+var(GPS_df)
+```
+
+# j. Standardize the GPS_df columns.
+```{r}
+str(num_data_imputed)
+# standardize
+library(vegan)
+num_data_imputed_std = decostand(num_data_imputed,"standardize") 
+str(num_data_imputed_std)
+```
+
+# k. Find the average speed when the traffic rating given is ???bad??? and the weather
+# is ???raining???.
+```{r}
+# merged the data
+final_data = data.frame(cat_data_imputed,num_data_imputed)
+final_data
+head(final_data)
+str(final_data)
+
+
+str(final_data$rating)
+final_data$rating_weather
+
+custom_data = final_data[as.numeric(final_data$rating) == 1 & as.numeric(final_data$rating_weather) == 2,]
+custom_data
+mean(custom_data$speed)
+```
+
+
+

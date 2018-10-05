@@ -44,7 +44,7 @@ rm(list = ls(all=TRUE))
 Make sure the dataset is located in your current working directory, else you can change your working directory using the "setwd()" function.
 
 ```{r}
-bank_data <- read.table("bank.txt", header=T, sep=";")
+bank_data <- read.table("/Users/amithprasad/repos/insofe_data_sc/20180909/20180909_Batch47_CSE7302c_LogisticRegression_lab/bank.txt", header=T, sep=";")
 head(bank_data)
 ```
 
@@ -368,12 +368,4 @@ str(test_data$y)
 confusionMatrix(preds_test_factor, test_data$y, positive = "yes")
 
 ```
-
-
-Running the model dropping models
-
-```{r}
-
-```
-
 

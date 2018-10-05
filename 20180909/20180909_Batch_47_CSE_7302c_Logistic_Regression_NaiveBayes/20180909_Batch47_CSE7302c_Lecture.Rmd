@@ -1,0 +1,130 @@
+---
+title: "1D Logistic Regression"
+author: "INSOFE Lab Activity on Logistic Regression"
+date: "9th September 2018"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+---
+
+```{r}
+
+rm(list = ls(all=TRUE))
+
+```
+
+
+```{r}
+
+data <- read.csv("FlierResponse.csv", header=T)
+
+```
+
+## Understand the data
+
+* Use the str() function to get the dimensions and types of attributes in the dataset
+
+* The dataset has 92 observations and 2 variables
+
+```{r}
+
+str(data)
+
+```
+
+
+* Use the summary() function to understand the distribution of variables in the dataset
+
+```{r}
+
+summary(data)
+
+```
+
+* Use the head() and tail() functions to get a look at the data
+
+```{r}
+
+head(data)
+
+tail(data)
+
+```
+## Basic Logistic Regression Model
+
+* Use the glm() function to build a basic model
+
+* Build a model using all the variables, excluding the response variable, in the dataset
+
+```{r}
+
+log_reg <- glm(Response~., data = data, family = binomial)
+
+
+```
+
+
+
+* Get the summary of the model and understand the output
+
+```{r}
+
+summary(log_reg)
+
+
+```
+
+## Creating an ROC plot
+
+__Steps to create an ROC plot :__
+
+1) Get a list of predictions (probability scores) using the predict() function
+
+```{r}
+
+# Use the argument 'type = "response"' in the predict function to get a list of predictions between 0 and 1
+
+# By default if no dataset is mentioned, training data is used
+
+prob <- predict(log_reg, type = "response")
+
+
+```
+
+2) Using the ROCR package create a "prediction()" object
+
+```{r}
+
+library(ROCR)
+
+# The prediction object takes the probability scores and the original levels for theses data as input
+
+pred <- prediction(prob, data$Response)
+
+# The prediction object contains a list of predictions (probability scores), original class labels, cutoffs, false positives, true positives, true negatives, false negatives, No. of positive predictions and No. of negative predictions corresponding to these cutoffs. Class distribution in the dataset.
+
+
+```
+
+3) Extract performance measures (True Positive Rate and False Positive Rate) using the "performance()" function from the ROCR package
+
+```{r}
+
+# The performance() function from the ROCR package helps us extract metrics such as True positive rate, False positive rate etc. from the prediction object, we created above.
+
+# Two measures (y-axis = tpr, x-axis = fpr) are extracted
+
+perf <- performance(pred, measure="tpr", x.measure="fpr")
+
+
+```
+
+4) Plot the ROC curve using the extracted performance measures (TPR and FPR)
+
+```{r}
+
+plot(perf, col=rainbow(10), colorize=T, print.cutoffs.at=seq(0,1,0.05))
+
+```
