@@ -1,0 +1,180 @@
+---
+title: "Cars Data Lin Reg My Trial"
+author: "Insofe Instructor"
+date: "October 6, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+# Removing the global variables
+```{r}
+
+rm(list=ls())
+
+```
+
+# EDA - Exploratory Data Analysis
+## 1. Look at the number of rows and columns using dim()
+```{r}
+dim(cars)
+```
+
+## 2.Display the first and last rows
+```{r}
+head(cars)
+tail(cars)
+```
+
+## 3. Column names
+```{r}
+names(cars)
+```
+
+## 4. Look at the structure of the dataset using the function `str()`
+```{r}
+str(cars)
+```
+
+## 5. Look at the summary of the dataset using the `summary()` 
+```{r}
+summary(cars)
+```
+
+## 6. Checking for 'NA' values 
+```{r}
+sum(is.na(cars))
+na_count <-sapply(cars, function(y) sum(length(which(is.na(y)))))
+na_count
+```
+
+## 8. Summary after renaming the columns 
+```{r}
+summary(cars)
+```
+
+# Analysing the data using plot() and cor()
+```{r}
+plot(cars$dist,cars$speed,main = "Speed vs Dist",xlab = "Speed", ylab = "Dist")
+```
+
+```{r}
+cor(cars$dist,cars$speed)
+```
+
+# Creating a linear regression model
+```{r}
+cars_model = lm(dist~speed, cars)
+```
+
+# Analysing the linear regression model using coefficients() , summary()
+```{r}
+summary(cars_model)
+```
+Conclusion:
+1. Model is significant - p-val of F stat is < 0.05
+2. speed is significant coz - p-val of T test of of speed (beta1) is < 0.05
+3. Intercept is significant as - p-val is < 0.05
+4. Since its Simple Lin Reg R squared has to be checked - speed explains 65.11% of variance of dist
+
+# Line of Best Fit
+```{r}
+plot(cars$speed,cars$dist,xlab = "Speed", ylab = "Dist", col = "red",lwd = 2, main = "Best Fit Line")
+abline(cars_model,col="blue",lty=1,lwd=2)
+grid(10,10,lwd=1)
+```
+
+
+# Analysis on the following:-
+## Linearity of the linearity of the model
+## Independence of errors
+## Homoscedasticity 
+## Normality of errors (Q-Q plot)
+```{r}
+par(mfrow = c(2,2)) # par - set the size of each plot
+plot(cars_model)
+```
+
+Conclusion:
+Residual Plot: 
+ - heteroscadastic
+
+QQ plot
+ - Visually no pattern and close to 45 degree line, so errors are normally distributed
+
+Cooks Dist
+ - 1 influencial point
+
+# #################################################################################################### #
+
+
+# Model Building
+
+## Train Test Split 70:30 split
+```{r}
+set.seed(800)
+
+#train_rows = sample(x = 1:nrow(big_mac),size = 0.7*nrow(big_mac))
+
+rows = seq(1,nrow(cars))
+train_rows = sample(rows,(70*nrow(cars))/100)
+
+train_data = cars[train_rows,]
+test_data = cars[-train_rows,]
+
+summary(train_data)
+summary(test_data)
+
+str(train_data)
+str(test_data)
+
+dim(train_data)
+dim(test_data)
+```
+
+## Checking for skewness using skewness()
+```{r}
+library(e1071)
+
+skewness(train_data$speed)
+skewness(train_data$dist)
+```
+Both are not much skewed
+
+
+
+## Creating a linear model with splitted train data
+```{r}
+trained_model = lm(dist~speed,train_data)
+
+```
+ 
+## Analysis on the model using sumary()
+```{r}
+summary(trained_model)
+```
+
+Conclusion:
+1. speed is a significant variable since p-val(T-test) < 0.05
+2. speed explains 61.23% of variance
+3. the model is significant p-val(F-stat) < 0.05
+
+
+
+## Evaluation model on train data using regr.eval()
+```{r}
+library(DMwR)
+regr.eval(train_data$dist, trained_model$fitted.values)
+```
+
+## Predict the values on test data
+```{r}
+dim(test_data)
+head(test_data,10)
+predicted_test_dist <- predict(trained_model, test_data)
+predicted_test_dist
+```
+
+## Error verification on test data
+```{r}
+regr.eval(test_data$dist, predicted_test_dist)
+```

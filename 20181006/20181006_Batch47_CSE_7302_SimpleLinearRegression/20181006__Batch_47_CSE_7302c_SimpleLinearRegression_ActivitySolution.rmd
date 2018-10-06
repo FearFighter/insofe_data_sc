@@ -1,0 +1,142 @@
+---
+title: "20181006_ Batch 47_CSE 7302c_SimpleLinearRegression_Activity"
+author: "Insofe Instructor"
+date: "October 6, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+# Removing the global variables
+```{r}
+rm(list = ls())
+```
+
+# Setting the working directory
+```{r}
+setwd("I:/DATA-SCIENCE/FACULTY/BATCH-47/Simple-Linear-Regression/Simple-Linear-Regression-master")
+```
+
+# Importing the data from the .csv file
+```{r}
+bigMac_netHrWages_df = read.csv(file = "BigMac-NetHourlyWage.csv" , header = TRUE)
+```
+
+# EDA - Exploratory Data Analysis
+## 1. Look at the number of rows and columns
+
+```{r}
+dim(bigMac_netHrWages_df)
+```
+
+## 2.Display the first and last rows
+```{r}
+head(bigMac_netHrWages_df)
+tail(bigMac_netHrWages_df)
+```
+
+## 3. Column names
+```{r}
+colnames(bigMac_netHrWages_df)
+```
+
+## 4. Look at the structure of the dataset using the function `str()`
+```{r}
+str(bigMac_netHrWages_df)
+```
+
+## 5. Look at the summary of the dataset using the `summary()` 
+```{r}
+summary(bigMac_netHrWages_df)
+```
+
+## 6. Checking for 'NA' values
+```{r}
+sum(is.na(bigMac_netHrWages_df))
+```
+
+## 7. Renaming the column names
+```{r}
+colnames(bigMac_netHrWages_df) = c("Country","BigMacPrice","NetHourlyWages")
+```
+
+## 8. Summary after renaming the columns 
+```{r}
+summary(bigMac_netHrWages_df)
+```
+
+# Analysing the data
+```{r}
+plot(bigMac_netHrWages_df$BigMacPrice, bigMac_netHrWages_df$NetHourlyWages)
+```
+
+```{r}
+cor(bigMac_netHrWages_df$BigMacPrice, bigMac_netHrWages_df$NetHourlyWages)^2
+```
+
+# Creating a linear regression model
+```{r}
+linearRegressionModel = lm(NetHourlyWages~BigMacPrice, data = bigMac_netHrWages_df)
+```
+
+# Analysing the linear regression model
+```{r}
+coefficients(linearRegressionModel)
+summary(linearRegressionModel)
+```
+
+# Analysis on the following:-
+## Linearity of the linearity of the model
+## Independence of errors
+## Homoscedasticity 
+## Normality of errors (Q-Q plot)
+```{r}
+par(mfrow = c(2,2))
+plot(linearRegressionModel)
+```
+
+# Model Building
+
+## Train Test Split
+```{r}
+rows = seq(1,nrow((bigMac_netHrWages_df)))
+trainRows = sample(rows,(70*nrow(bigMac_netHrWages_df))/100)
+trainData = bigMac_netHrWages_df[trainRows,] 
+testData = bigMac_netHrWages_df[-trainRows,]
+```
+
+## Checking for skewness
+```{r}
+library(e1071)
+skewness(trainData$BigMacPrice)
+trainData$Log10_BigMacPrice = log10(trainData$BigMacPrice)
+skewness(trainData$Log10_BigMacPrice)
+```
+
+## Creating a linear model with split train data
+```{r}
+linearRegressionMode2 = lm(NetHourlyWages~Log10_BigMacPrice, data = trainData)
+```
+ 
+## Analysis on the model
+```{r}
+summary(linearRegressionMode2)
+par(mfrow = c(2,2))
+plot(linearRegressionMode2)
+```
+
+## Evaluation
+```{r}
+library(DMwR)
+regr.eval(trainData$NetHourlyWages, linearRegressionMode2$fitted.values)
+```
+
+## Prdict the values on test data
+```{r}
+testData$Log10_BigMacPrice = log10(testData$BigMacPrice)
+Pred<-predict(linearRegressionMode2,testData)
+```
+
+## Error verification on test data
+```{r}
+regr.eval(testData$NetHourlyWages, Pred)
+```

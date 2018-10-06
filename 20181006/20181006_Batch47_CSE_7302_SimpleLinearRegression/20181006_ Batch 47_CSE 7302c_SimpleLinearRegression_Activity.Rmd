@@ -1,0 +1,209 @@
+---
+title: "20181006_ Batch 47_CSE 7302c_SimpleLinearRegression_Activity"
+author: "Insofe Instructor"
+date: "October 6, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+# Removing the global variables
+```{r}
+
+rm(list=ls())
+
+```
+
+# Setting the working directory
+```{r}
+# i dont think this is required
+```
+
+# Importing the data from the .csv file
+```{r}
+path = "BigMac-NetHourlyWage.csv"
+big_mac = read.delim(path,sep=',',header=TRUE)
+```
+
+# EDA - Exploratory Data Analysis
+## 1. Look at the number of rows and columns using dim()
+```{r}
+dim(big_mac)
+```
+
+## 2.Display the first and last rows
+```{r}
+head(big_mac)
+tail(big_mac)
+```
+
+## 3. Column names
+```{r}
+names(big_mac)
+```
+
+## 4. Look at the structure of the dataset using the function `str()`
+```{r}
+str(big_mac)
+```
+
+## 5. Look at the summary of the dataset using the `summary()` 
+```{r}
+summary(big_mac)
+```
+
+## 6. Checking for 'NA' values 
+```{r}
+sum(is.na(big_mac))
+na_count <-sapply(big_mac, function(y) sum(length(which(is.na(y)))))
+na_count
+```
+
+## 7. Renaming the column names
+```{r}
+colnames(big_mac)[2] <- "price"
+colnames(big_mac)[3] <- "net_hr_wage"
+names(big_mac)
+```
+
+## 8. Summary after renaming the columns 
+```{r}
+summary(big_mac)
+```
+
+# Analysing the data using plot() and cor()
+```{r}
+plot(big_mac$price,big_mac$net_hr_wage,main = "Net Hourly Wage vs Big Mac Price",xlab = "Big Mac Price", ylab = "Net Hourly Wage")
+```
+
+```{r}
+cor(big_mac$price,big_mac$net_hr_wage)
+```
+
+# Creating a linear regression model
+```{r}
+big_mac_model = lm(net_hr_wage~price, big_mac)
+```
+
+# Analysing the linear regression model using coefficients() , summary()
+```{r}
+summary(big_mac_model)
+```
+Conclusion:
+1. Model is significant - p-val of F stat is < 0.05
+2. big mac price is significant coz - p-val of T test of of big mac price (beta1) is < 0.05
+3. Intercept is not significant as - p-val is > 0.05
+4. Since its Simple Lin Reg R squared has to be checked - big mac price explains 51.42% of variance of net hourly wage
+
+# Line of Best Fit
+```{r}
+plot(big_mac$price,big_mac$net_hr_wage,xlab = "Price", ylab = "Net Hourly Wage", col = "red",lwd = 2, main = "Best Fit Line")
+abline(big_mac_model,col="blue",lty=1,lwd=2)
+grid(10,10,lwd=1)
+```
+
+
+# Analysis on the following:-
+## Linearity of the linearity of the model
+## Independence of errors
+## Homoscedasticity 
+## Normality of errors (Q-Q plot)
+```{r}
+par(mfrow = c(2,2)) # par - set the size of each plot
+plot(big_mac_model)
+```
+
+Conclusion:
+Residual Plot: 
+ - heteroscadastic
+
+QQ plot
+ - Visually no pattern and close to 45 degree line, so errors are normally distributed
+
+Cooks Dist
+ - 1 influencial point
+
+# #################################################################################################### #
+
+
+# Model Building
+
+## Train Test Split 70:30 split
+```{r}
+set.seed(800)
+
+#train_rows = sample(x = 1:nrow(big_mac),size = 0.7*nrow(big_mac))
+
+rows = seq(1,nrow(big_mac))
+train_rows = sample(rows,(70*nrow(big_mac))/100)
+
+train_data = big_mac[train_rows,]
+test_data = big_mac[-train_rows,]
+
+summary(train_data)
+summary(test_data)
+
+str(train_data)
+str(test_data)
+
+dim(train_data)
+dim(test_data)
+```
+
+## Checking for skewness using skewness()
+```{r}
+library(e1071)
+# skewness(train_data$net_hr_wage)
+skewness(train_data$price)
+
+```
+The Net hourly Wage is +vely skewed
+The Price is +vely skewed
+
+# Remove the Skewness y either square root / log transformation
+```{r}
+train_data$log_price = log10(train_data$price)
+skewness(train_data$log_price)
+```
+
+
+
+## Creating a linear model with splitted train data
+```{r}
+trained_model = lm(net_hr_wage~log_price,train_data)
+
+```
+ 
+## Analysis on the model using sumary()
+```{r}
+summary(trained_model)
+```
+
+Conclusion:
+1. price is a significant variable since p-val(T-test) < 0.05
+2. price explains 28.07% of variance
+3. the model is significant p-val(F-stat) < 0.05
+
+
+
+## Evaluation model on train data using regr.eval()
+```{r}
+# predicted_train_net_hr_wage <- predict(trained_model, train_data[, !(names(train_data) %in% c("net_hr_wage"))])
+# predicted_train_net_hr_wage
+
+library(DMwR)
+regr.eval(train_data$net_hr_wage, trained_model$fitted.values)
+#regr.eval(train_data$net_hr_wage, predicted_train_net_hr_wage)
+```
+
+## Predict the values on test data
+```{r}
+dim(test_data)
+test_data$log_price = log10(test_data$price)
+predicted_test_net_hr_wage <- predict(trained_model, test_data)
+predicted_test_net_hr_wage
+```
+
+## Error verification on test data
+```{r}
+regr.eval(test_data$net_hr_wage, predicted_test_net_hr_wage)
+```
