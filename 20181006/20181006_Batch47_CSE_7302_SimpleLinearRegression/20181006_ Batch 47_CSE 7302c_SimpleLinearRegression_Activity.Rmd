@@ -207,3 +207,5 @@ predicted_test_net_hr_wage
 ```{r}
 regr.eval(test_data$net_hr_wage, predicted_test_net_hr_wage)
 ```
+
+# mape is high due to bias and variance
