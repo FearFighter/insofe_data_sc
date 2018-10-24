@@ -5,8 +5,8 @@ date: "10/7/2018"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r}
+rm(list = ls())
 ```
 
 ## R Markdown
@@ -15,16 +15,140 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r cars}
-summary(cars)
+```{r}
+file="winequalityred.csv"
+wine_data = read.delim(file,sep=';',header=TRUE)
 ```
 
 ## Including Plots
 
 You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+head(wine_data)
+tail(wine_data)
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+summary(wine_data)
+```
+
+```{r}
+str(wine_data)
+```
+
+all the independant vars are numerical
+
+```{r}
+sum(is.na(wine_data))
+```
+no na's in the dataset
+
+# standardize / normalize independant vars
+```{r}
+wine_data_x = subset(wine_data, select = -c(quality))
+dim(wine_data_x)
+norm_wine_data_x = scale(wine_data_x)
+dim(norm_wine_data_x)
+head(norm_wine_data_x)
+wine_data_norm = cbind(norm_wine_data_x,wine_data$quality)
+wine_data_norm = data.frame(wine_data_norm)
+dim(wine_data_norm)
+class(wine_data_norm)
+colnames(wine_data_norm)[12] <- "quality"
+head(wine_data_norm)
+summary(wine_data_norm)
+```
+
+train test split
+```{r}
+set.seed(200)
+
+rows = seq(1,nrow(wine_data_norm))
+rows
+train_rows = sample(rows,(70*nrow(wine_data_norm))/100)
+train_rows
+summary(wine_data_norm)
+train_data = wine_data_norm[train_rows,]
+test_data = wine_data_norm[-train_rows,]
+
+summary(train_data)
+str(train_data)
+head(test_data)
+
+```
+
+# build model
+```{r}
+class(train_data)
+
+multi_lin_reg <- lm(quality~. ,train_data)
+summary(multi_lin_reg)
+```
+
+#plot the residuals
+```{r}
+par(mfrow = c(2,2))
+plot(multi_lin_reg)
+```
+
+# step AIC
+```{r}
+library(MASS)
+
+model_aic <- stepAIC(multi_lin_reg, direction = "both")
+
+
+```
+
+# removing insignificant columns
+
+```{r}
+summary(model_aic)
+```
+
+# running logistic regression
+
+# convert quality to factor
+
+```{r}
+train_quality = subset(train_data, select = c(quality))
+train_data = subset(train_data, select = -c(quality))
+str(train_data)
+
+train_quality = data.matrix(train_quality)
+head(train_quality)
+class(train_quality)
+str(train_quality)
+train_quality = as.factor(train_quality)
+
+str(train_quality)
+
+
+train_data = cbind(train_data,train_quality)
+train_data = data.frame(train_data)
+dim(train_data)
+class(train_data)
+colnames(train_data)[12] <- "quality"
+summary(train_data)
+str(train_data)
+```
+
+```{r}
+
+
+# library(nnet)
+# log_reg <- multinom(quality~., train_data)
+# summary(log_reg)
+
+library(party)
+d_trees = ctree(quality~., train_data)
+summary(d_trees)
+```
+
+```{r}
+plot(d_trees)
+```
+

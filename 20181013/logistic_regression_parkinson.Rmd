@@ -1,0 +1,220 @@
+---
+title: 'Logistic Reg : Parkinsons Classification'
+output: html_document
+---
+
+```{r}
+rm(list = ls(all=TRUE))
+```
+
+```{r}
+file_path = "/Users/amith.prasad/Documents/parkinsons_data.csv"
+parkinson_data = read.delim(file_path,sep=',')
+```
+
+```{r}
+head(parkinson_data)
+tail(parkinson_data)
+```
+```{r}
+summary(parkinson_data)
+str(parkinson_data)
+```
+
+# check for NAs
+```{r}
+sum(is.na(parkinson_data))
+```
+
+# No NAs - so imputation needed
+
+# normalize
+```{r}
+class(parkinson_data)
+#removing status column
+parkinson_data_x = subset(parkinson_data,select=-c(status))
+
+#normalizing
+parkinson_data_norm_x = scale(parkinson_data_x)
+
+# putting back status column
+parkinson_data_norm_x = as.data.frame(parkinson_data_norm_x)
+class(parkinson_data_norm_x)
+parkinson_data_norm = cbind(parkinson_data_norm_x,parkinson_data$status)
+colnames(parkinson_data_norm)[23] = "status"
+str(parkinson_data_norm)
+```
+
+# train test split
+# make sure status is equally(70:30) split in train and test
+```{r}
+library(caret)
+set.seed(123)
+
+train_rows <- createDataPartition(parkinson_data_norm$status, p = 0.7, list = F)
+train_data <- parkinson_data_norm[train_rows, ]
+test_data <- parkinson_data_norm[-train_rows, ]
+
+```
+
+```{r}
+str(train_data)
+dim(train_data)
+```
+
+```{r}
+str(test_data)
+dim(test_data)
+```
+
+```{r}
+log_reg <- glm(status~., data = train_data, family = binomial)
+```
+```{r}
+summary(log_reg)
+```
+
+# AIC lower is better
+```{r}
+Devaince_residuals = residuals(log_reg, "deviance")
+summary(Devaince_residuals)
+```
+
+```{r}
+logLik(log_reg)
+```
+
+```{r}
+prob_train <- predict(log_reg, type = "response")
+```
+
+```{r}
+library(ROCR)
+
+pred <- prediction(prob_train, train_data$status)
+
+```
+
+```{r}
+perf <- performance(pred, measure="tpr", x.measure="fpr")
+plot(perf, col=rainbow(10), colorize=T, print.cutoffs.at=seq(0,1,0.05))
+```
+
+```{r}
+perf_auc <- performance(pred, measure="auc")
+
+auc <- perf_auc@y.values[[1]]
+print(auc)
+```
+
+```{r}
+prob_test <- predict(log_reg, test_data, type = "response")
+preds_test <- ifelse(prob_test > 0.1, "yes", "no")
+
+```
+
+```{r}
+test_data_labs <- test_data$status
+conf_matrix <- table(test_data_labs, preds_test)
+print(conf_matrix)
+
+```
+
+```{r}
+library(caret)
+
+str(preds_test)
+unique(preds_test)
+preds_test_factor = factor(preds_test,labels=c("Normal","Parkinson's"))
+
+str(preds_test_factor)
+str(test_data$status)
+preds_test_factor
+test_data$status
+confusionMatrix(preds_test_factor, test_data$status, positive = "Parkinson's")
+```
+
+```{r}
+library(MASS)
+
+step_aic = stepAIC(log_reg,direction='both')
+```
+
+```{r}
+summary(step_aic)
+```
+
+```{r}
+library(car)
+
+vif(step_aic)
+```
+
+
+# performing prediction on step aic
+
+# AIC lower is better
+```{r}
+Devaince_residuals = residuals(step_aic, "deviance")
+summary(Devaince_residuals)
+```
+
+```{r}
+logLik(step_aic)
+```
+
+```{r}
+prob_train <- predict(step_aic, type = "response")
+```
+
+```{r}
+library(ROCR)
+
+pred <- prediction(prob_train, train_data$status)
+
+```
+
+```{r}
+perf <- performance(pred, measure="tpr", x.measure="fpr")
+plot(perf, col=rainbow(10), colorize=T, print.cutoffs.at=seq(0,1,0.05))
+```
+
+```{r}
+perf_auc <- performance(pred, measure="auc")
+
+auc <- perf_auc@y.values[[1]]
+print(auc)
+```
+
+```{r}
+prob_test <- predict(step_aic, test_data, type = "response")
+preds_test <- ifelse(prob_test > 0.1, "yes", "no")
+
+```
+
+```{r}
+test_data_labs <- test_data$status
+conf_matrix <- table(test_data_labs, preds_test)
+print(conf_matrix)
+```
+
+```{r}
+library(caret)
+
+str(preds_test)
+unique(preds_test)
+preds_test_factor = factor(preds_test,labels=c("Normal","Parkinson's"))
+
+str(preds_test_factor)
+str(test_data$status)
+preds_test_factor
+test_data$status
+confusionMatrix(preds_test_factor, test_data$status, positive = "Parkinson's")
+```
+
+# in this data since Parkinson's is yes
+# So Reduce False -ve, so increase Recall = true +ve / actual +ve
+
+# change the threshold so as to increase recall / sensitivity = with threshold at 0.1 sensitivity is 1. so that is the best result.
+
+
