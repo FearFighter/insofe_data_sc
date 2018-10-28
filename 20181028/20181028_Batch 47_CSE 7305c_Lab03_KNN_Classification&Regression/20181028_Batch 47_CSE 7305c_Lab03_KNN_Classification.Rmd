@@ -1,0 +1,298 @@
+---
+title: "Classification using K-Nearest Neighbour"
+author: "Batch 47 - KNN INSOFE Lab Activity"
+date: "28 October 2018"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+---
+
+**NOTE** Before starting this activity please remember to clear your environment.
+
+```{r}
+rm(list = ls(all=TRUE))
+```
+
+# Agenda 
+
+* Read the dataset
+
+* Data pre-processing
+
+* Explore the dataset
+
+* K-Nearest Neigbour Classification without Normalization
+
+* K-Nearest Neigbour Classification with Normalization
+
+* K-Nearest Neigbour Classification with Condensation
+
+
+# Problem Description
+
+* In the following Supervised Learning activity, the Data file contains the historical data for the 8 weeks prior to the week we are trying to predict. The data was taken as weekly snapshots at the start of each week. Columns are defined as follows:
+
+    
+    sku - Random ID for the product
+    national_inv - Current inventory level for the part
+    lead_time - Transit time for product (if available)
+    in_transit_qty - Amount of product in transit from source
+    forecast_3_month - Forecast sales for the next 3 months
+    forecast_6_month - Forecast sales for the next 6 months
+    forecast_9_month - Forecast sales for the next 9 months
+    sales_1_month - Sales quantity for the prior 1 month time period
+    sales_3_month - Sales quantity for the prior 3 month time period
+    sales_6_month - Sales quantity for the prior 6 month time period
+    sales_9_month - Sales quantity for the prior 9 month time period
+    min_bank - Minimum recommend amount to stock
+    potential_issue - Source issue for part identified
+    pieces_past_due - Parts overdue from source
+    perf_6_month_avg - Source performance for prior 6 month period
+    perf_12_month_avg - Source performance for prior 12 month period
+    local_bo_qty - Amount of stock orders overdue
+    deck_risk - Part risk flag
+    oe_constraint - Part risk flag
+    ppap_risk - Part risk flag
+    stop_auto_buy - Part risk flag
+    rev_stop - Part risk flag
+    went_on_backorder - Product actually went on backorder. This is the target value.
+    
+         Yes or 1 : Product backordered
+         No or 0  : Product not backordered
+
+
+# Reading & Understanding the Data
+
+* Make sure the dataset is located in your current working directory
+
+```{r results='hide', message=FALSE, warning=FALSE}
+# Load all packages
+  library(class)   #knn
+  library(caret)  #trainControl , train
+```
+
+* Setting the Working directory & reading the Data-File
+
+```{r}
+
+  # Use the setwd() function to get to the directory where the data is present
+  
+  setwd = getwd()
+  
+  data = read.csv("BackOrders.csv",header = TRUE,na.strings = c("#","NaN","@","NA"))
+  
+  str(data) #Checking the Data Types and their levels present in all the Featuresss
+  
+  summary(data) #Obtaining the Summary Stats of the datasets
+  
+```
+
+* Viewing the various features of the Data
+
+```{r}
+    
+  dim(data) #See the No. row and columns
+
+  colnames(data) #Display the columns
+  
+  head(data) #See the top rows of the data
+  
+  summary(data) #Shows a quick statistic summary of your data
+
+  str(data) #Display data type of each variable
+
+```
+
+
+* Observations
+
+    sku is Categorical but is interpreted as int64.
+    potential_issue, deck_risk, oe_constraint, ppap_risk, stop_auto_buy, rev_stop, and        went_on_backorder are also categorical but is interpreted as object. 
+
+* Convert all the attributes to appropriate type
+
+```{r}
+    
+  # Data type conversion
+  # Using 'as.factor' to convert potential_issue, deck_risk, oe_constraint,       
+  # ppap_risk, stop_auto_buy, rev_stop, and went_on_backorder attributes to categorical attributes
+
+  cat_cols = c("sku","potential_issue","deck_risk","oe_constraint","ppap_risk",
+               "stop_auto_buy","rev_stop","went_on_backorder")
+  data[cat_cols] <- lapply(data[cat_cols], as.factor)
+
+  #To Check the data types of the features
+  str(data)
+  
+  #As Attribute 'sku' is not important, we are dropping this particular coloumn
+  data$sku = NULL
+  dim(data) #Observing the number of records before and after missing value records removal
+  
+  #Checking the count of NA values
+  sum(is.na(data)) #Counting the NA values on the entire dataset
+  colSums(is.na(data)) #Counting the NA values for every coloumn
+  (sum(is.na(data$lead_time))/nrow(data))*100 #Checking the percentage of NA values in a coloumn
+
+  #Since the number of missing values is about 5%. For initial analysis we ignore all these records Converting Categorical to Numeric
+  library(tidyr)
+  data = drop_na(data) #Dropping the Missing Values
+  colSums(is.na(data)) #For obtaining the Missing values count for all the features individually
+  sum(is.na(data)) #For Checking sum of all the missing values in the dataset
+  dim(data) #For checking the dimensions of the data
+  
+  #Selecting all the categorical attributes
+  cat_attrbs = subset(data, select = c(potential_issue,deck_risk,oe_constraint,ppap_risk,
+                                       stop_auto_buy,rev_stop))
+  colnames(cat_attrbs) 
+
+  #Creating dummy variables
+  #For some of the models all the independent attribute should be of type numeric and Linear Regression model is one among them. But this data set has some categorial attributes.Use 'dummies' To convert convert categorical variable into dummy/indicator variables
+  
+  # require(dummies) - If dummies package is not installed, this command automatically installs it
+  
+  library(dummies)
+  data = dummy.data.frame(data=data,names = c("potential_issue","deck_risk","oe_constraint",
+                                              "ppap_risk","stop_auto_buy","rev_stop"),sep = ".")
+  str(data)
+
+  #Target Attribute Distribution
+  table(data$went_on_backorder) #For Retreiving the count of the levels in the coloumn
+  prop.table(table(data$went_on_backorder)) #For Retreiving the percentage of the levels in the coloumn
+  
+  #Split arrays or matrices into random train and test subsets
+  set.seed(345) #Setting the seed for retreiving the same data sample
+  train = sample(1:nrow(data),nrow(data)*0.7)
+  data_train = data[train,] 
+  data_test = data[-train,]
+  
+  #To get the distribution in the target in train and test
+  table(data_train$went_on_backorder)
+  table(data_test$went_on_backorder)
+  
+  #Removing the Target attribute from the 'Train' & 'Test'
+  data_trainwithoutclass = subset(data_train,select=-c(went_on_backorder))
+  data_testwithoutclass = subset(data_test,select=-c(went_on_backorder))
+
+```
+
+* IMPLEMENTING THE KNN-ALGORITHM FOR CLASSIFICATION PROBLEM
+
+```{r}
+
+#KNN_CLASSIFICATION (GENERAL-KNN)
+
+  # N = 1/3/5/7
+  
+  Neigh <- 5
+  library(class)
+  pred = knn(data_trainwithoutclass, data_testwithoutclass, data_train$went_on_backorder, k = Neigh)
+  
+  #Predictions
+  ac_Te = table(pred,data_test$went_on_backorder)
+  accu_Te = sum(diag(ac_Te))/sum(ac_Te)
+  accu_Te
+
+```
+
+* KNN-ALGORITHM WITH NORMALIZATION
+
+```{r}
+
+  #Implementing the Work-Flow from Splitting the Data so as to induce the Normalized metrics
+  #of Train into Test
+
+  set.seed(345) # To get same data in each time
+  trainRows = sample(1:nrow(data),nrow(data)*0.7) # To take a random sample of  70% of the records for train data 
+  data_train = data[trainRows,] 
+  data_test = data[-trainRows,] 
+  
+  # NORMALIZE train data using 'Scale' method
+  library(caret)
+  preProcValues <- preProcess(data_train, method=c("scale"))
+  data_train <- predict(preProcValues, data_train)
+  
+  # NORMALIZE test data using 'Scale' method
+  data_test <- predict(preProcValues, data_test)
+  
+  data_trainwithoutclass = subset(data_train,select=-c(went_on_backorder))
+  data_testwithoutclass = subset(data_test,select=-c(went_on_backorder))
+  
+  # N = 1/3/5/7
+  noOfNeigh <- 5
+  pred_Norm =knn(data_trainwithoutclass, data_testwithoutclass, data_train$went_on_backorder, 
+                 k = noOfNeigh)
+  dim(data_trainwithoutclass)
+  dim(data_testwithoutclass)
+  length(data_train$went_on_backorder)
+
+  ac_Te_Norm = table(pred_Norm,data_test$went_on_backorder)
+  accu_Te_Norm = sum(diag(ac_Te_Norm))/sum(ac_Te_Norm) #Accuracy
+  accu_Te_Norm
+  
+  #Automated Confusion Matrix Calculator
+  #confusionMatrix(...) - Simple alternative for obtaining all the metrics
+  
+```
+
+* K-NN CLASSIFICATION WITH CONDENSATION
+
+```{r}
+
+set.seed(345)
+# condensing the number of records to compute distances from a test record 
+condensed_layer = condense(data_trainwithoutclass, data_train$went_on_backorder,trace = FALSE)
+nrow(data_trainwithoutclass)
+length(condensed_layer)
+head(condensed_layer)
+
+# take condensed data and run the model
+pred_Condense = knn(data_trainwithoutclass[condensed_layer,], data_testwithoutclass,
+                    data_train$went_on_backorder[condensed_layer],k=5)
+ac_Condense = table(pred_Condense,data_test$went_on_backorder)
+accu_Condense = sum(diag(ac_Condense))/sum(ac_Condense)
+accu_Condense
+
+```
+
+* OBTAINING THE OPTIMUM K-VALUE
+
+```{r}
+
+  # Selecting the value of K ,hyper-parameter tuning
+  set.seed(345)
+  ctrl <- trainControl(method="repeatedcv",repeats = 3) #INITIATING THE TRAIN-CONTROL METHOD
+  
+  #Implementing the Cross-Validation Methodology by using 'train' function
+  knnFit <- train(went_on_backorder ~ ., data = data_train, 
+                  method = "knn", trControl = ctrl,
+                  preProcess = c("center","scale"))
+  knnFit
+  plot(knnFit) #Plotting the Results
+  pred_cv <- predict(knnFit,data_testwithoutclass)
+  ac_cv <- table(pred_cv,data_test$went_on_backorder)
+  accuracy_cv <- sum(diag(ac_cv))/sum(ac_cv)
+  accuracy_cv
+  
+  confusionMatrix(pred_cv,data_test$went_on_backorder)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

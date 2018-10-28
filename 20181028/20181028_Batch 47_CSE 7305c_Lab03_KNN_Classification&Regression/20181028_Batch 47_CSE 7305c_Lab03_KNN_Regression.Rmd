@@ -1,0 +1,267 @@
+---
+title: "Regression using K-Nearest Neighbour"
+author: "Batch 47 - KNN INSOFE Lab Activity"
+date: "28 October 2018"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+---
+
+**NOTE** Before starting this activity please remember to clear your environment.
+
+```{r}
+
+  rm(list = ls(all=TRUE))
+
+```
+
+# Agenda 
+
+* Read the dataset
+
+* Data pre-processing
+
+* Explore the dataset
+
+* Regression with K-Nearest Neigbour
+
+
+# Problem Description
+
+* In the following Supervised Learning activity, the Data file contains the Customer Data of a Game Store which makes revenue by selling Video Games. We need to predict the 'TotalRevenueGenerated'
+
+
+# Reading & Understanding the Data
+
+* Make sure the dataset is located in your current working directory
+
+```{r results='hide', message=FALSE, warning=FALSE}
+
+  # Load all packages
+  library(class)   #knn
+  library(caret)  #trainControl , train
+
+```
+
+* Setting the Working directory & reading the Data-File
+
+```{r}
+  # Use the setwd() function to get to the directory where the data is present
+  
+  setwd = getwd()
+  
+  data = read.csv("CustomerData.csv",header = TRUE,na.strings = c("#","NaN","@","NA"))
+  
+  str(data) #Checking the Data Types and their levels present in all the Featuresss
+  
+  summary(data) #Obtaining the Summary Stats of the datasets
+  
+```
+
+* Viewing the various features of the Data
+
+```{r}
+    
+  dim(data) #See the No. row and columns
+
+  colnames(data) #Display the columns
+  
+  head(data) #See the top rows of the data
+  
+```
+
+
+* Data Analysis
+
+```{r}
+  
+  #Target Attribute Distribution
+  attach(data)
+  
+  #FavoriteGame Coloumn Distribution
+  table(data$FavoriteGame) #For Retreiving the count of the levels in the coloumn
+  prop.table(table(data$FavoriteGame)) #For Retreiving the percentage of the levels in the coloumn
+  
+  #FavoriteChannelOfTransaction Coloumn Distribution
+  table(data$FavoriteChannelOfTransaction)
+  prop.table(table(data$FavoriteChannelOfTransaction))
+
+```
+
+* Data Preparation
+
+```{r}
+  
+  # Observations:
+  #   1. City is interpreted as numeric (which is actually categorical) and FavouriteGame, 
+  #      FavouriteChannelOfTransaction are interpreted as objects.
+  #   2. max age of children is 113 which must be a wrong entry
+  #   3. Summary statistics for CustomerID is not meaningful
+  #         
+  #   So we now change these appropriately i.e, convert city, favourite game and favourite channel to 
+  #   category, exclude customer id from the data for analysis and treat wrong entry records
+
+  #Check and delete CustomerID attribute
+  data$CustomerID = NULL
+  # View(data)
+
+  #Data Type conversion
+  #Using 'as.factor' to convert City', 'FavoriteChannelOfTransaction', 'FavoriteGame' attributes to categorical attributes  
+
+  cat_cols = c("City", "FavoriteChannelOfTransaction", "FavoriteGame")
+  data[cat_cols] = lapply(data[cat_cols], as.factor)
+  str(data)
+  
+```
+
+* Removing the Irrelevant Records
+
+```{r}
+
+  #Observe how many records have values 113 as age of the children
+  
+  temp_df = data[(data$MinAgeOfChild==113 | data$MaxAgeOfChild==113),]
+  # View(temp_df)
+  dim(temp_df)
+  
+  data = data[!(data$MinAgeOfChild==113 | data$MaxAgeOfChild==113),]
+  # View(data)
+  dim(data)
+
+```
+
+* Checking Missing Data
+
+  Missing Data
+    'R' primarily uses the value NA to represent missing data. 
+
+  Check for missing value
+    is.na() - output boolean i.e. if missing value then true else false. 
+    sum function counts 'true' thus gives total number of missing values
+    
+```{r}
+
+  sum(is.na(data))
+  str(data)
+
+  # In this case there are no missing values. However if we find any missing values in the data, as a rule of thumb
+  # 
+  #   (A)If the particular row/column has more number of missing values then drop that particular rows/column 
+  # 
+  #     e.g. To drop any rows that have missing data use 'drop_na(dataframe)' 
+  # 
+  #   (B)Otherwise, impute/fill missing data based on domain knowledge or using imputation techniques
+  # 
+  #     e.g. To fill missing values with mean use 'CentralImputation' or 'KNNImputation'
+  
+```
+    
+* Finding Correlation between Numerical Attributes
+    
+```{r}
+  
+  library(dplyr) #Loading 'dplyr' package for selecting numeric attributes
+  num_attrbs = select_if(data, is.numeric) 
+  str(num_attrbs)
+  
+  library(corrplot)
+  
+  #Approach-1:
+    # cor_var = cor(num_attrbs)
+    # op = corrplot(cor_var)
+
+  #Approach-2:
+  op = corrplot(cor(num_attrbs))
+  op
+  
+```
+
+* Converting Categorical to Numeric
+
+```{r}
+
+  #Removing Colloinear-Coloumns
+  # As 'FrequencyofPurchase' and 'NoofunitsPurchased' have high collinearity with the Target Attribute, So we need to drop these features
+
+  data$FrquncyOfPurchase <- NULL
+  data$NoOfUnitsPurchased <- NULL
+
+
+
+# Converting Categorical to Numeric
+#   For some of the models all the independent attribute should be of type numeric and Linear Regression model is      one among them. Use library 'dummies' to convert convert categorical variable into dummy/indicator variables
+
+  library(dummies)
+  data=dummy.data.frame(data=data,names = c("City","FavoriteGame","FavoriteChannelOfTransaction"),sep = ".")
+  str(data)
+  head(data)
+  
+```
+
+* Splitting Data into Train & Test
+
+```{r}
+
+  #Splitting the data into Train and Test
+  set.seed(123) # To get same data in each time
+  trainRows = sample(1:nrow(data),nrow(data)*0.7) # To take a random sample of  60% of the records for train data 
+  data_train = data[trainRows,] 
+  data_test = data[-trainRows,] 
+
+  #STANDARIDIZATION of the data
+  # STANDARDIZE train data using 'Range' method
+  library(caret)
+  preProcValues = preProcess(data_train, method=c("range"))
+  data_train_std = predict(preProcValues, data_train)
+  
+  # STANDARDIZE test data using 'Range' method
+  data_test_std = predict(preProcValues, data_test)
+  
+  #Removing the Target Variable From 'Train' & 'Test' Data
+  data_train_std_withoutclass = subset(data_train_std,select=-c(TotalRevenueGenerated))
+  data_test_std_withoutclass = subset(data_test_std,select=-c(TotalRevenueGenerated))
+  
+```
+
+* Building K-Nearest Neighbour Regression Model
+
+```{r}
+
+  #KNN Regression Model
+  library(caret)
+
+  noOfNeigh = 3 #Intiating the Neighbors as 3 with a variable that will be assigned in the furthur lines of code
+  # knn_regression = knn(train = data_train_std_withoutclass,test = data_test_std_withoutclass,
+  #                      cl= data_train_std$TotalRevenueGenerated, k = noOfNeigh)
+  
+  data_train_withoutclass = subset(data_train,select = -c(TotalRevenueGenerated))
+  data_test_withoutclass = subset(data_test,select = -c(TotalRevenueGenerated))
+  
+  knn_regression = knn(train = data_train_withoutclass,test = data_test_withoutclass,
+                       cl= data_train$TotalRevenueGenerated, k = noOfNeigh)
+
+    
+  #Evaluation of the Model
+  library(DMwR)
+  regr.eval(trues = data_test$TotalRevenueGenerated,preds = as.numeric(knn_regression))
+
+```
+
+* Finding out the OPTIMAL K-VALUE with CROSS-VALIDATION & REPEATED CROSS-VALIDATION
+
+```{r}
+
+  # Selecting the value of K - [hyper-parameter tuning]
+
+  set.seed(123)
+  ctrl <- trainControl(method="repeatedcv",repeats = 7) #INITIATING THE TRAIN-CONTROL METHOD
+  
+  #Implementing the Cross-Validation Methodology by using 'train' function
+  knnCV_results <- train(TotalRevenueGenerated ~ ., data = data_train_std, 
+                  method = "knn", trControl = ctrl,preProcess = c("center","scale"))
+  knnCV_results
+  plot(knnCV_results) #Plotting the Results
+  
+```

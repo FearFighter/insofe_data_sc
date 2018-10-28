@@ -1,0 +1,437 @@
+---
+title: "Income"
+author: "Vivan"
+date: "26 October 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+## Clear the work invironment
+
+```{r}
+
+rm(list = ls(all = TRUE))
+
+```
+
+## Set the working directory
+
+```{r}
+
+getwd()
+
+```
+
+## Reading the data
+
+```{r}
+
+income <- read.csv("train_data.csv", header = T)
+
+```
+
+## Understand the data and remove the index column
+
+```{r}
+
+income$index <- NULL
+
+str(income)
+
+```
+
+## Converting loan taken to categorical value
+
+## Converting the target to Categorical
+
+```{r}
+
+income$loan_taken <- as.factor(income$loan_taken)
+
+income$target <- as.factor(income$target)
+
+```
+
+## Checking the structure again
+
+```{r}
+
+str(income)
+
+```
+
+## Summary
+
+```{r}
+
+summary(income)
+
+```
+
+## Checking the head and tail
+
+```{r}
+
+head(income)
+
+```
+
+```{r}
+
+tail(income)
+
+```
+
+## Checking the NA values
+
+```{r}
+
+sum(is.na(income))
+
+```
+
+## Found 33349 NA values in the train data set.
+
+## checking the NA values more than 20%
+
+```{r}
+
+library(DMwR)
+
+income_1 <- manyNAs(income, 0.2)
+
+income_1
+
+```
+
+## Omit the above 25 rows
+
+```{r}
+
+income_new <- income[-income_1, ]
+
+dim(income_new)
+
+```
+
+## check columnwise NA's
+
+```{r}
+
+colSums(is.na(income_new))
+
+```
+
+## Imputation by central imputation
+
+## tax paid to category to 0 and 1
+
+```{r}
+
+income_impute<-centralImputation(income_new) #Cenral Imputation
+
+income$tax_paid <- as.factor(ifelse(is.na(income$tax_paid),0,1))
+
+```
+
+## Checkign the NA values again
+
+```{r}
+
+sum(is.na(income_impute))
+
+```
+
+## Train and validation split
+
+```{r}
+
+library(caret)
+
+set.seed(125)
+
+train_rows <- createDataPartition(income_impute$target, p=0.7, list = F)
+
+train_data <- income_impute[train_rows, ]
+
+val_data <- income_impute[-train_rows, ]
+
+```
+
+```{r}
+
+str(train_data)
+
+```
+```{r}
+
+str(val_data)
+
+```
+
+## Build a model
+
+```{r}
+
+log_reg <- glm(target ~ . , data = train_data, family = binomial)
+
+```
+
+## Summary
+
+```{r}
+
+summary(log_reg)
+
+```
+## Step AIC
+
+```{r}
+
+library(MASS)
+
+log_reg_aic <- stepAIC(log_reg, direction = "both")
+
+```
+
+## Summary
+
+```{r}
+
+summary(log_reg_aic)
+
+```
+
+## Creating ROC Plot
+
+```{r}
+
+prob_train <- predict(log_reg_aic, type = "response")
+
+```
+
+## Using ROCR package create a prediction fn.
+
+```{r}
+
+library(ROCR)
+
+pred <- prediction(prob_train, train_data$target)
+
+```
+
+## Extract performance measure (TFR and FPR) using the performance fn.
+
+```{r}
+
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+
+```
+
+## Plot the ROC curve
+
+```{r}
+
+plot(perf, col=rainbow(10), colorize=T, print.cutoffs.at=seq(0,1,0.05))
+
+```
+
+## Using performance fn.extract the AUC score
+
+```{r}
+
+perf_auc <- performance(pred, measure = "auc")
+
+auc <- perf_auc@y.values[[1]]
+
+print(auc)
+
+```
+
+## Choose a cut off value of 0.4
+
+## Predictions on the validation data
+
+```{r}
+
+prob_val <- predict(log_reg_aic, val_data, type = "response")
+
+preds_val <- ifelse(prob_val > 0.4, "1", "0")
+
+```
+
+## Evaluation 
+
+```{r}
+
+val_data_labs <- val_data$target
+
+conf_matix <- table(val_data_labs, preds_val)
+
+print(conf_matix)
+
+```
+
+## Specificity
+
+```{r}
+
+specificity <- conf_matix[1, 1]/sum(conf_matix[1, ])
+
+print(specificity)
+
+```
+
+## Sensitivity
+
+```{r}
+
+sensitivity <- conf_matix[2, 2]/sum(conf_matix[2, ])
+
+print(sensitivity)
+
+```
+
+## Accuracy
+
+```{r}
+
+accuracy <- sum(diag(conf_matix))/sum(conf_matix)
+
+print(accuracy)
+
+```
+## Accuracy is 84.38%
+
+
+## Test data
+
+## Reading test data
+
+```{r}
+
+income_test <- read.csv("test_data.csv", header = T)
+
+```
+
+## Remove the index column and see the structure
+
+```{r}
+
+pred1 <- data.frame(income_test$index)  ## taking the index value for the final submission
+
+income_test$index <- NULL
+
+str(income_test)
+
+```
+
+## converting the loan taken to categorical value
+
+```{r}
+
+income_test$loan_taken <- as.factor(income_test$loan_taken)
+
+```
+
+## Checking the structure again
+
+```{r}
+
+str(income_test)
+
+```
+
+## Summary
+
+```{r}
+
+summary(income_test)
+
+```
+
+## Checking the NA values
+
+```{r}
+
+sum(is.na(income_test))
+
+```
+
+## Found 947 NA values in the test data set
+
+## Checking more than 20% NA values
+
+```{r}
+
+library(DMwR)
+
+manyNAs(income_test, 0.2)
+
+```
+
+## No rows are having more than 20% NA values in the test data set.
+
+```{r}
+
+colSums(is.na(income_test))
+
+```
+
+## Central imputation and converting tax paid to category 0 and 1
+
+```{r}
+
+income_test_impute <- centralImputation(income_test)
+
+income_test$tax_paid <- as.factor(ifelse(is.na(income_test$tax_paid),0,1))
+
+```
+
+## Checking the NA values again
+
+```{r}
+
+sum(is.na(income_test_impute))
+
+```
+
+## There are no NA values in the data set.
+
+## Prediction on Test data
+
+```{r}
+
+prob_test <- predict(log_reg_aic, income_test_impute, type = "response")
+
+pred_test <- ifelse(prob_test > 0.4, "1", "0")
+
+pred2 <- data.frame(pred_test)   ## to take the prediction output
+
+```
+
+## Creating the new data frame for the final submission (Index and target)
+
+```{r}
+
+submission <- data.frame(pred1, pred2)
+
+colnames(submission) <- c("Index", "Target")
+
+submission
+
+```
+
+## Write CSV
+
+```{r}
+
+write.csv(submission, "final_submission_Batch47_CSE7302c_CUTe_2259_Vivan.csv", row.names = FALSE)
+
+```
+
