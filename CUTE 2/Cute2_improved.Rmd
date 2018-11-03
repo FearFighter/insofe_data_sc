@@ -1,0 +1,218 @@
+---
+title: "Cute2"
+author: "Amith Prasad"
+date: "10/27/2018"
+output: html_document
+---
+
+```{r}
+
+rm(list = ls(all=TRUE))
+
+```
+
+```{r}
+population_data <- read.table("/Users/amithprasad/repos/insofe_data_sc/CSE7302c_CUTe/train_data.csv", header=T, sep=",")
+test_data <- read.table("/Users/amithprasad/repos/insofe_data_sc/CSE7302c_CUTe/test_data.csv", header=T, sep=",")
+head(population_data)
+head(test_data)
+```
+
+```{r}
+str(population_data)
+str(test_data)
+```
+
+
+```{r}
+summary(population_data)
+summary(test_data)
+```
+
+```{r}
+sum(is.na(population_data))
+sum(is.na(test_data))
+```
+
+```{r}
+na_count <-sapply(population_data, function(y) sum(length(which(is.na(y)))))
+na_count <- data.frame(na_count)
+na_count
+```
+ 
+# omit na values
+```{r}
+population_data=na.omit(population_data)
+```
+
+```{r}
+na_count <-sapply(population_data, function(y) sum(length(which(is.na(y)))))
+na_count <- data.frame(na_count)
+na_count
+```
+
+Imputing Test data
+# knnImputation on numerical data
+# Imputing Test Data
+```{r}
+library(DMwR)
+test_data[,!names(test_data) %in% c("working_sector","qualification","martial_status","index","occupation","relationship","ethnicity ","gender","country ")]= knnImputation(test_data[,!names(test_data) %in% c("working_sector","qualification","martial_status","index","occupation","relationship","ethnicity ","gender","country ")])  # perform knn imputation.
+sum(is.na(test_data))
+```
+
+# Mode imputation on categorical data
+# Test data categoricat data imputation
+```{r}
+sum(is.na(test_data))
+test_data_imputed=centralImputation(test_data)
+sum(is.na(test_data_imputed))
+
+str(test_data_imputed)
+```
+
+
+```{r}
+#population_data
+population_data$working_sector = as.character(population_data$working_sector)
+population_data$working_sector[population_data$working_sector == "national" | population_data$working_sector == "state" | population_data$working_sector == "local_body"] = "Gov"
+population_data$working_sector[population_data$working_sector == "not_worked"|population_data$working_sector == "without_pay"] = "Unemployed"
+population_data$working_sector[population_data$working_sector == "private" | population_data$working_sector == "self_employed"] = "Employed"
+as.factor(population_data$working_sector)
+table((population_data$working_sector))
+sum(is.na(population_data$working_sector))
+
+
+
+data$marital_status = as.character(data$marital_status)
+data$marital_status[data$marital_status == "Divorced" | data$marital_status == "Never-married" | data$marital_status == "Separated" | data$marital_status == "Widowed"] = "Un_married"
+data$marital_status[data$marital_status == "Married-civilian" | data$marital_status == "Married-defence" | data$marital_status == "Married-non-resident"] = "Married"
+as.factor(data$marital_status)
+table(data$marital_status)
+
+
+
+test$working_sector = as.character(test$working_sector)
+test$working_sector[test$working_sector == "national" | test$working_sector == "state" | test$working_sector == "local_body"] = "Gov"
+test$working_sector[test$working_sector == "not_worked"|test$working_sector == "without_pay"] = "Unemployed"
+test$working_sector[test$working_sector == "private" | test$working_sector == "self_employed"] = "Employed"
+as.factor(test$working_sector)
+table((test$working_sector))
+sum(is.na(test$working_sector))
+
+
+
+test$marital_status = as.character(test$marital_status)
+test$marital_status[test$marital_status == "Divorced" | test$marital_status == "Never-married" | test$marital_status == "Separated" | test$marital_status == "Widowed"] = "Un_married"
+test$marital_status[test$marital_status == "Married-civilian" | test$marital_status == "Married-defence" | test$marital_status == "Married-non-resident"] = "Married"
+as.factor(test$marital_status)
+table(test$marital_status)
+
+```
+
+# convert target var to factor
+```{r}
+population_data$target=as.factor(population_data$target)
+```
+
+# standardizing the data
+```{r}
+library(caret)
+#population_data_std <- scale(x = population_data[, !names(population_data) %in% c("target")])
+population_data_std <- preProcess(x = population_data[, !names(population_data) %in% c("target")],
+                      method = c("center", "scale"))
+
+
+population_data<- predict(population_data_std, population_data)
+
+test_data<- predict(population_data_std, test_data)
+
+```
+
+
+# split into train validate
+```{r}
+library(caret)
+set.seed(700)
+
+train_rows <- createDataPartition(population_data$target, p = 0.8, list = F)
+train_data <- population_data[train_rows, ]
+validate_data <- population_data[-train_rows, ]
+```
+
+# build model
+```{r}
+log_model <- glm(target~., data = train_data, family = binomial)
+summary(log_model)
+```
+
+```{r}
+predict_train <- predict(log_model, type = "response")
+```
+
+```{r}
+library(ROCR)
+pred <- prediction(predict_train, train_data$target)
+perf <- performance(pred, measure="tpr", x.measure="fpr")
+plot(perf, col=rainbow(10), colorize=T, print.cutoffs.at=seq(0,1,0.05))
+```
+
+```{r}
+perf_auc <- performance(pred, measure="auc")
+auc <- perf_auc@y.values[[1]]
+auc
+```
+
+
+```{r}
+prob_test <- predict(log_model, validate_data, type = "response")
+preds_test <- ifelse(prob_test > 0.5, 1, 0)
+
+validate_data_y <- validate_data$target
+validate_data_y
+preds_test
+conf_matrix <- table(validate_data_y, preds_test)
+
+print(conf_matrix)
+```
+
+```{r}
+specificity <- conf_matrix[1, 1]/sum(conf_matrix[1, ])
+print(specificity)
+
+sensitivity <- conf_matrix[2, 2]/sum(conf_matrix[2, ])
+print(sensitivity)
+
+accuracy <- sum(diag(conf_matrix))/sum(conf_matrix)
+print(accuracy)
+```
+
+```{r}
+library(caret)
+confusionMatrix(as.factor(preds_test),as.factor(validate_data$target))
+```
+
+```{r}
+library(MASS)
+model1_aic <- stepAIC(log_model, direction = "both")
+```
+```{r}
+str(train_data)
+str(test_data)
+```
+```{r}
+pred_final <- predict(log_model, test_data_imputed, type = "response")
+pred_final_final <- ifelse(pred_final > 0.5, 1, 0)
+final_data=data.frame(pred_final_final)
+names(final_data) = c("target")
+head(final_data)
+write.csv(final_data,file="final_data.csv")
+```
+
+
+
+
+
+
+
+
+

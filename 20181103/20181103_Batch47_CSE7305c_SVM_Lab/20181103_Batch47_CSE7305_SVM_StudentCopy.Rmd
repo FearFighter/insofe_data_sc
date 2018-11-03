@@ -1,0 +1,264 @@
+---
+title: "Using Support Vectors to Predict Cancer"
+author: "Insofe Lab Activity for Ensemble Learning"
+date: "03 Nov 2018"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+---
+
+**NOTE** Before starting this assignment please remember to clear your environment, you can do that by running the following code chunk
+
+```{r}
+
+rm(list = ls(all=TRUE))
+
+```
+
+**NOTE** Be careful with moving back and forth the various sections in this assignment as we will be building a lot of models and unexpected things might happen if you don't carefully handle the objects in your global environment
+
+## Agenda 
+
+* Read in the data
+
+* Data Pre-processing
+
+* Build a linear SVM model
+
+* Do cross validation for finding the optimal C value
+
+* Build SVM with Kernels
+
+* Report Metrics of the various Models on Test Data
+
+# Reading & Understanding the Data
+
+* Read in the .csv file
+
+```{r}
+
+# change your working directory using the "setwd()" function, if your dataset is located elsewhere
+
+
+
+```
+
+* Get a feel for the data using the str() and summary() functions 
+
+```{r}
+
+
+```
+
+The dataset has 569 observations with 32 variables, the descriptions of the variables are given below :
+
+1) **id** : Unique identification number of the sample
+
+2) **Cancer** : This column represents whether the patient has a benign/normal tumor (0) or a cancerous one ("1")
+
+3) **The remaining 30 variables** are real valued measurements some of which are given below:
+
+	* radius (mean of distances from center to points on the perimeter)
+	* texture (standard deviation of gray-scale values)
+	* perimeter
+	* area
+	* smoothness (local variation in radius lengths)
+	* compactness (perimeter^2 / area - 1.0)
+	* concavity (severity of concave portions of the contour)
+	* concave points (number of concave portions of the contour)
+	* symmetry 
+	* fractal dimension ("coastline approximation" - 1)
+	
+
+* Let's look at the head and tail of the dataset
+
+```{r}
+
+
+```
+
+# Data Pre-processing
+
+* Let's convert the Cancer column into a factor, because it was read in as a numeric attribute (1 is if the patient has cancer and 0 is if the patient does not have cancer)
+
+```{r}
+
+
+```
+
+* Let's now remove the irrelevant column of "id" from the dataset
+
+```{r}
+
+
+```
+
+* Let's verify if there are any missing values in the dataset
+
+```{r}
+
+
+```
+
+* Split the dataset into train and test using using stratified sampling using the caret package
+
+```{r}
+
+
+```
+
+* Standardize all the real valued variables in the dataset as it provides numerical stability to the svm solution
+
+* Let's use the preProcess() function from the caret package to standardize the variables, using just the data points in the training data
+
+```{r}
+
+
+```
+
+
+# Building Multiple SVM models
+
+* Let's first start out building a linear SVM and tune the model to get a decent C value
+
+## Linear SVM
+
+* We can build the most basic linear SVM, with default parameters using the svm() function from the e1071 package
+
+```{r}
+
+
+```
+
+### Understanding the importance of C in SVM
+
+$$\arg\min_{\mathbf{w},\mathbf{\xi}, b } \left\{\frac{1}{2} \|\mathbf{w}\|^2 + C \sum_{i=1}^n \xi_i \right\}$$
+
+![](img/svm_margin.jpg)
+
+* From above we see that the margin obtained by using C = 100 might not be the optimal linear classifier
+
+![](img/soft_margin.png)
+
+* So, higher the value of C, the more chance there is that the model is sensitive to noise and outliers
+
+### Tuning for the optimal C
+
+* Now, let's create a sampling strategy using the trainControl() function and use the train() function from the caret package to get the best value of C
+
+* One way to tune models, is first using an exponential search space and then doing a more refined search near the optimal area
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
+* Hence, from the above cross validation experiment, we can choose the C parameter taht gives us the best cross validation accuracy
+
+* You might see a slightly different result due to the randomness that arises from the sampling process in cross validation
+
+* Let's measure the performance of our optimized svm on the test data 
+
+```{r}
+
+
+```
+
+## Understanding the Kernel Trick
+
+* Firstly, we need to understand that a linear separation hyperplane might exist in a higher dimension, even if it does not exist in the current space
+
+![](img/data_2d_to_3d_hyperplane.png)
+
+
+![](img/kernel_viz.gif)
+
+* But the problem is that transforming the data to higher dimensions is computationally exhaustive
+
+* So, that is where the kernel trick comes in. 
+
+* For that we have to formulate our machine learning problem in terms of the dot product
+
+![](img/lagrangian.png)
+
+![](img/new_point.png)
+
+![](img/kernel.png)
+
+## Non-Linear SVMs
+
+* We can explore various kernel functions to compute the dot product in higher dimensions to find the maximum margin linear classifying boundary in the higher dimension, without transforming our data into a higher dimension space.
+  
+* We can access various non linear kernels from the kernlab package
+
+### Polynomial Kernel
+
+* We can build an svm model using the polynomial kernel, as below
+
+![](img/poly_kernel_math.png)
+
+* The general form of the polynomial kernel is as below
+
+![](img/polynomial-kernel.png)
+
+* Now, since we are using the kernlab package the hyperparameters are specific to this implementation, and the form is given below
+
+![](img/polynomial_kernlab.png)
+
+```{r}
+
+
+
+```
+
+```{r}
+
+
+
+```
+
+* Hence, we get the best model with the above parameters.
+
+```{r}
+
+
+```
+
+### RBF Kernel
+
+
+* The general form of the RBF kernel is as below
+
+![](img/gaussian-kernel.png)
+
+* Now, since we are using the kernlab package the hyperparameters are specific to this implementation, and the form is given below
+
+![](img/rbf_kernlab.png)
+
+* We can build an svm model using the RBF kernel, as below
+
+```{r}
+
+
+```
+
+```{r}
+
+
+
+```
+
+* Hence, we can see that the rbf kernel is not a good fit here and therefore we do not proceed further
+
+
+
+
+
+

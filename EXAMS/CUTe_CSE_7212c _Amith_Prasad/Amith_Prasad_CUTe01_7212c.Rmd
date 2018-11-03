@@ -194,7 +194,7 @@ str(final_data)
 
 str(final_data$rating)
 final_data$rating_weather
-
+final_data[1,1]
 custom_data = final_data[as.numeric(final_data$rating) == 1 & as.numeric(final_data$rating_weather) == 2,]
 custom_data
 mean(custom_data$speed)
