@@ -41,14 +41,14 @@ rm(list = ls(all=TRUE))
 
 # change your working directory using the "setwd()" function, if your dataset is located elsewhere
 
-
+cancer_data = read.csv("cancer_diagnosis.csv")
 
 ```
 
 * Get a feel for the data using the str() and summary() functions 
 
 ```{r}
-
+str(cancer_data)
 
 ```
 
@@ -76,7 +76,7 @@ The dataset has 569 observations with 32 variables, the descriptions of the vari
 
 ```{r}
 
-
+head(cancer_data)
 ```
 
 # Data Pre-processing
@@ -84,29 +84,34 @@ The dataset has 569 observations with 32 variables, the descriptions of the vari
 * Let's convert the Cancer column into a factor, because it was read in as a numeric attribute (1 is if the patient has cancer and 0 is if the patient does not have cancer)
 
 ```{r}
-
+cancer_data$Cancer <- as.factor(cancer_data$Cancer)
 
 ```
 
 * Let's now remove the irrelevant column of "id" from the dataset
 
 ```{r}
-
-
+cancer_data <- cancer_data[ , !(colnames(cancer_data) %in% "id")]
 ```
 
 * Let's verify if there are any missing values in the dataset
 
 ```{r}
 
-
+sum(is.na(cancer_data))
 ```
 
 * Split the dataset into train and test using using stratified sampling using the caret package
 
 ```{r}
+library(caret)
+set.seed(1234)
 
+index_train <- createDataPartition(cancer_data$Cancer, p = 0.7, list = F)
 
+pre_train <- cancer_data[index_train, ]
+
+pre_test <- cancer_data[-index_train, ]
 ```
 
 * Standardize all the real valued variables in the dataset as it provides numerical stability to the svm solution
@@ -114,8 +119,11 @@ The dataset has 569 observations with 32 variables, the descriptions of the vari
 * Let's use the preProcess() function from the caret package to standardize the variables, using just the data points in the training data
 
 ```{r}
+std_method <- preProcess(pre_train, method = c("center", "scale"))
 
-
+train_data <- predict(std_method, pre_train)
+ 
+test_data <- predict(std_method, pre_test)
 ```
 
 
@@ -128,7 +136,11 @@ The dataset has 569 observations with 32 variables, the descriptions of the vari
 * We can build the most basic linear SVM, with default parameters using the svm() function from the e1071 package
 
 ```{r}
+library(e1071)
 
+model_svm <- svm(Cancer ~ . , train_data, kernel = "linear")
+
+summary(model_svm)
 
 ```
 
@@ -152,22 +164,39 @@ $$\arg\min_{\mathbf{w},\mathbf{\xi}, b } \left\{\frac{1}{2} \|\mathbf{w}\|^2 + C
 
 ```{r}
 
+library(caret)
+
+sampling_strategy <- trainControl(method = "repeatedcv", number = 4, repeats = 10)
 
 ```
 
 ```{r}
+svm_rough_model_c <- train(Cancer ~ . , train_data, method = "svmLinear",
+                     tuneGrid = data.frame(.C = c(10^-4, 10^-3, 10^-2, 10^-1, 10^1, 10^2, 10^3)), trControl = sampling_strategy)
+
+svm_rough_model_c
 
 
-```
+svm_fine_model_c <- train(Cancer ~ . , train_data, method = "svmLinear",
+                     tuneGrid = data.frame(.C = c(10^-0.25, 10^-0.5, 10^-0.75, 10^-1, 10^-1.25, 10^-1.5, 10^-1.75)), trControl = sampling_strategy, metric = "Accuracy")
+
+svm_fine_model_c
+ ```
 
 * Hence, from the above cross validation experiment, we can choose the C parameter taht gives us the best cross validation accuracy
 
 * You might see a slightly different result due to the randomness that arises from the sampling process in cross validation
 
-* Let's measure the performance of our optimized svm on the test data 
+* Lets measure the performance of our optimized svm on the test data 
 
 ```{r}
+preds_svm <- predict(model_svm, test_data)
 
+preds_svm_optimized <- predict(svm_fine_model_c, test_data)
+
+confusionMatrix(preds_svm, test_data$Cancer)
+
+confusionMatrix(preds_svm_optimized, test_data$Cancer)
 
 ```
 
@@ -213,13 +242,14 @@ $$\arg\min_{\mathbf{w},\mathbf{\xi}, b } \left\{\frac{1}{2} \|\mathbf{w}\|^2 + C
 ![](img/polynomial_kernlab.png)
 
 ```{r}
-
+library(kernlab)
+svm_poly <- ksvm(Cancer ~ . , train_data, kernel = "polydot")
 
 
 ```
 
 ```{r}
-
+svm_poly
 
 
 ```
@@ -227,8 +257,14 @@ $$\arg\min_{\mathbf{w},\mathbf{\xi}, b } \left\{\frac{1}{2} \|\mathbf{w}\|^2 + C
 * Hence, we get the best model with the above parameters.
 
 ```{r}
+svm_rough_model_poly <- train(Cancer ~ . , train_data, method = "svmPoly",
+                     tuneGrid = expand.grid(.C = c(10^-3, 10^-2.5, 10^-2.1, 10^-1.5, 10^-1.2, 10^-0.6), .degree = c(2, 3, 5), .scale = c(0.15, 0.25, 1)), trControl = sampling_strategy)
 
+svm_rough_model_poly
 
+preds_svm_poly <- predict(svm_rough_model_poly, test_data)
+
+confusionMatrix(preds_svm_poly, test_data$Cancer)
 ```
 
 ### RBF Kernel
@@ -245,12 +281,17 @@ $$\arg\min_{\mathbf{w},\mathbf{\xi}, b } \left\{\frac{1}{2} \|\mathbf{w}\|^2 + C
 * We can build an svm model using the RBF kernel, as below
 
 ```{r}
+library(kernlab)
 
+svm_poly <- ksvm(Cancer ~ . , train_data, kernel = "rbfdot")
 
 ```
 
 ```{r}
+svm_rough_model_rbf <- train(Cancer ~ . , train_data, method = "svmRadial",
+                     tuneGrid = expand.grid(.C = c(10^1), .sigma = c(10^3, 10^4, 10^5, 10^8, 10^-5, 10^-10, 10^-15)))
 
+svm_rough_model_rbf
 
 
 ```
