@@ -1,0 +1,130 @@
+---
+title: "ADABoost Methodology"
+author: "Insofe Lab - Batch 47"
+date: "4th Nov 2018"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+---
+
+#Clearing the Environment
+
+```{r}
+  
+  rm(list=ls(all.names=TRUE))
+
+```
+
+
+# the Univ_bank dataset has 14 variables and 5000 records. Use loan as target variable. 
+
+# read the dataset into R
+
+```{r}
+
+  # setwd("")
+  U_Bank <-read.csv(file="UniversalBank.csv",header=T,sep=",",fill=T)
+
+```
+
+
+# drop unnecessary the attributes (ID & ZIP Code)
+
+```{r}
+
+  str(U_Bank)
+  U_Bank <-U_Bank[,-c(1,5)]
+  str(U_Bank)
+
+```
+
+
+# subset data into numeric and categorical
+
+```{r}
+
+  U_Bank_Num <- subset(x = U_Bank, select = c(Age, Experience, Income, Family, CCAvg, Mortgage))
+  U_Bank_Cat <- subset(x = U_Bank, select = -c(Age, Experience, Income, Family, CCAvg, Mortgage))
+
+```
+
+
+# convert categorical attributes into factors
+
+```{r}
+  
+  U_Bank_Cat <- data.frame(apply(X = U_Bank_Cat, MARGIN = 2, FUN = as.factor))
+
+```
+
+
+# dummify all categorical attributes (except "Personal.Loan")
+
+```{r}
+  
+  library(dummies)
+  data_cat_dummy <-dummy.data.frame(U_Bank_Cat[,-c(2)])
+  str(data_cat_dummy)
+  
+```
+
+
+# convert numerical attributes into numerics
+
+```{r}
+  
+  U_Bank_Num <- data.frame(apply(X = U_Bank_Num, MARGIN = 2, FUN = as.character))
+  U_Bank_Num <- data.frame(apply(X = U_Bank_Num, MARGIN = 2, FUN = as.numeric))
+
+
+  # Combining categorical and numerical datasets 
+  data_combine <- cbind(data_cat_dummy, U_Bank_Num)
+  str(data_combine)
+  
+  # Standardize the combined datset
+  library(vegan)
+  data_std <- decostand(x = data_combine,method = "range")
+  str(data_std)
+  
+  # Add "Personal.Loan" back into the dataset
+  data_final <- cbind(data_std,U_Bank_Cat$Personal.Loan)
+  str(data_final)
+  colnames(data_final)[18] <-c("Personal.Loan")
+  
+```
+
+#Data Sampling and Model Building
+  
+```{r}
+
+  # Split data into train and test
+  rows <- seq(from = 1, to = nrow(data_final), by = 1)
+  set.seed(2020)
+  trainrows <- sample(x = rows, size = nrow(data_final) * 0.7)
+  trainR <- data_final[trainrows,] #all rows in trainrows & all columns of parent dataset
+  testR <- data_final[-trainrows,]
+  
+  # build the classification model using Adaboost
+  library(ada) 
+  x = subset(trainR, select = -Personal.Loan) 
+  y = as.factor(trainR$Personal.Loan) 
+  a = subset(testR, select = -Personal.Loan) 
+  b = as.factor(testR$Personal.Loan) 
+
+  model = ada(x, y, iter=20, loss="logistic") # 20 Iterations 
+  model
+  
+  # predict the values using model on test data sets. 
+  pred = predict(model, a);pred 
+  
+  # calculate accuracy 
+  result <- table(pred, b);result # 0(-ve) and 1(+ve)
+  accuracy <- sum(diag(result))/sum(result)*100;accuracy
+  
+  # experiment with different number of iterations to get the best results
+
+```
+
+

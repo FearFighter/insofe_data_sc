@@ -1,0 +1,329 @@
+---
+title: "cute3 - tennis"
+author: "Amith Prasad"
+date: "11/24/2018"
+output: html_document
+---
+
+```{r}
+train = read.csv("train-1542197608821.csv")
+```
+
+```{r}
+str(train)
+```
+
+
+```{r}
+sum(is.na(train))
+# no NA values
+```
+
+```{r}
+# removing ID column
+train = subset(train, select = -c(ID))
+```
+
+```{r}
+str(train)
+```
+
+```{r}
+# split numerical and categorical vars
+num_Attr = c('rally','serve','speed','net.clearance','distance.from.sideline','depth','player.distance.travelled','player.impact.depth','player.impact.distance.from.center','player.depth','player.distance.from.center','previous.speed','previous.net.clearance','previous.distance.from.sideline','previous.depth','opponent.depth','opponent.distance.from.center','previous.time.to.net')
+cat_Attr = setdiff(names(train), num_Attr)
+cat_Attr
+
+# Separate numerical and categorical variables and convert them into appropriate type
+
+cat_Data = data.frame(sapply(train[,cat_Attr], as.factor))
+num_Data = data.frame(sapply(train[,num_Attr], as.numeric))
+
+```
+```{r}
+# standardizing the numerical variables data
+num_Data = scale(num_Data)
+```
+
+```{r}
+cat_Data[1]
+```
+
+```{r}
+#dummify cat vars
+library("dummies")
+c1 = data.frame(dummy(cat_Data$hitpoint))
+c2 = data.frame(dummy(cat_Data$outside.sideline))
+c3 = data.frame(dummy(cat_Data$outside.baseline))
+c4 = data.frame(dummy(cat_Data$same.side))
+c5 = data.frame(dummy(cat_Data$previous.hitpoint))
+c6 = data.frame(dummy(cat_Data$server.is.impact.player))
+c7 = data.frame(dummy(cat_Data$gender))
+```
+
+```{r}
+train = cbind(num_Data,c1,c2,c3,c4,c5,c6,c7,cat_Data$outcome)
+```
+
+```{r}
+dim(train)
+colnames(train)[37] <- "outcome"
+```
+
+```{r}
+str(train)
+```
+
+```{r}
+library(caret)
+set.seed(600) 
+```
+
+```{r}
+# k cross validation
+# cross validation does a train - test split of 80-20 and runs it k times
+#k=5
+# train.control <- trainControl(method = "repeatedcv", number = 5,repeats = 3)
+train.control <- trainControl(method = "repeatedcv", number = 5, repeats = 2)
+```
+
+
+```{r}
+# Train the model - Naive Bayes
+model_z_nb <- train(outcome ~ .,data=train, method = "naive_bayes", trControl = train.control)
+# Summarize the results
+print(model_z_nb)
+# 76.0
+```
+
+```{r}
+# Train the model - Decision Tree
+model_z_log_r <- train(outcome ~ .,data=train, method = "multinom", trControl = train.control)
+# Summarize the results
+print(model_z_log_r)
+# 81.87
+```
+
+```{r}
+# Train the model - Decision Tree
+model_z_knn <- train(outcome ~ .,data=train, method = "knn", trControl = train.control)
+# Summarize the results
+print(model_z_knn)
+# 76.27
+```
+
+```{r}
+# Train the model - Decision Tree
+model_z_c5 <- train(outcome ~ .,data=train, method = "C5.0", trControl = train.control)
+# Summarize the results
+print(model_z_c5)
+# 86.53
+```
+
+```{r}
+# Train the model - Decision Tree
+model_z_svm <- train(outcome ~ .,data=train, method = "lssvmRadial", trControl = train.control)
+# Summarize the results
+print(model_z_svm)
+# 80.62
+```
+
+```{r}
+# Train the model - Random Forrest
+mtry <- sqrt(ncol(train))
+tunegrid <- expand.grid(.mtry=mtry)
+metric <- "Accuracy"
+model_z_rf <- train(outcome ~ .,data=train, method = "rf", ntree = 1000, metric=metric, tuneGrid=tunegrid, trControl = train.control)
+# Summarize the results
+print(model_z_rf)
+# 86.73
+```
+
+```{r}
+# Train the model - Gradient Boost
+metric <- "Accuracy"
+model_z_gbm <- train(outcome ~ .,data=train, metric=metric, method = "gbm", trControl = train.control)
+# Summarize the results
+print(model_z_gbm)
+# 87.17
+```
+
+```{r}
+# Train the model - XG Boost
+metric <- "Accuracy"
+# param_grid <- expand.grid(.nrounds = 1000,
+#                           .max_depth = c(2, 4, 6, 8, 10),
+#                           .eta = c(0.01, 0.001, 0.0001),
+#                           .gamma = 1,
+#                           .colsample_bytree = c(0.6, 0.4),
+#                           .min_child_weight = 1,
+#                           .subsample = c(0.6, 0.9))
+# model_z_xgbTree <- train(outcome ~ .,data=train, metric=metric, method = "xgbTree", trControl = train.control, tuneGrid = param_grid)
+model_z_xgbTree <- train(outcome ~ .,data=train, metric=metric, method = "xgbTree", trControl = train.control)
+# Summarize the results
+print(model_z_xgbTree)
+# 87.45
+```
+
+
+```{r}
+preds_z_nb <- predict(model_z_nb, train)
+confusionMatrix(data = preds_z_nb, reference = train$outcome)
+
+preds_z_log_r <- predict(model_z_log_r, train)
+confusionMatrix(data = preds_z_log_r, reference = train$outcome)
+
+preds_z_knn <- predict(model_z_knn, train)
+confusionMatrix(data = preds_z_knn, reference = train$outcome)
+
+preds_z_c5 <- predict(model_z_c5, train)
+confusionMatrix(data = preds_z_c5, reference = train$outcome)
+
+preds_z_svm <- predict(model_z_svm, train)
+confusionMatrix(data = preds_z_svm, reference = train$outcome)
+
+preds_z_rf <- predict(model_z_rf, train)
+confusionMatrix(data = preds_z_rf, reference = train$outcome)
+
+
+preds_z_gbm <- predict(model_z_gbm, train)
+confusionMatrix(data = preds_z_gbm, reference = train$outcome)
+
+
+preds_z_xgbTree <- predict(model_z_xgbTree, train)
+confusionMatrix(data = preds_z_xgbTree, reference = train$outcome)
+```
+
+# Stacking
+# stacking xgb + rf + LogR + Knn -> NB
+```{r}
+stacked_preds =  data.frame(rf = preds_z_rf,xgb = preds_z_xgbTree,log_r = preds_z_log_r,knn = preds_z_knn,outcome=train$outcome)
+dim(stacked_preds)
+model_z_final_glm <- train(outcome ~ .,data=stacked_preds, method = "xgbTree", trControl = train.control)
+```
+
+# Predict and confusion matrix on TRAIN
+```{r}
+preds_z_final_nb <- predict(model_z_final_glm, stacked_preds)
+confusionMatrix(data = model_z_final_glm, reference = train$outcome)
+```
+
+
+```{r}
+test_raw_data = read.csv("test-1542197608821.csv")
+test = test_raw_data
+```
+
+```{r}
+sum(is.na(test))
+```
+
+```{r}
+# removing ID column
+test = subset(test, select = -c(ID))
+```
+
+```{r}
+# split numerical and categorical vars
+num_Attr = c('rally','serve','speed','net.clearance','distance.from.sideline','depth','player.distance.travelled','player.impact.depth','player.impact.distance.from.center','player.depth','player.distance.from.center','previous.speed','previous.net.clearance','previous.distance.from.sideline','previous.depth','opponent.depth','opponent.distance.from.center','previous.time.to.net')
+cat_Attr = setdiff(names(test), num_Attr)
+cat_Attr
+
+# Separate numerical and categorical variables and convert them into appropriate type
+
+cat_Data = data.frame(sapply(test[,cat_Attr], as.factor))
+num_Data = data.frame(sapply(test[,num_Attr], as.numeric))
+```
+
+```{r}
+# standardizing the numerical variables data
+num_Data = scale(num_Data)
+```
+
+```{r}
+#dummify cat vars
+library("dummies")
+c1 = data.frame(dummy(cat_Data$hitpoint))
+c2 = data.frame(dummy(cat_Data$outside.sideline))
+c3 = data.frame(dummy(cat_Data$outside.baseline))
+c4 = data.frame(dummy(cat_Data$same.side))
+c5 = data.frame(dummy(cat_Data$previous.hitpoint))
+c6 = data.frame(dummy(cat_Data$server.is.impact.player))
+c7 = data.frame(dummy(cat_Data$gender))
+```
+
+```{r}
+test = cbind(num_Data,c1,c2,c3,c4,c5,c6,c7)
+```
+
+```{r}
+str(test)
+```
+
+# Predict and confusion matrix on TEST
+
+# individual predictors
+```{r}
+print(model_z_rf)
+preds_z_rf_test <- predict(model_z_rf, newdata=test)
+length(preds_z_rf_test)
+
+preds_z_xgbTree_test <- predict(model_z_xgbTree, newdata=test)
+length(preds_z_xgbTree_test)
+```
+
+# stacked predictors
+
+```{r}
+# library(caretEnsemble)
+# control <- trainControl(method="repeatedcv", number=5, repeats=3, savePredictions=TRUE, classProbs=TRUE)
+# algorithmList <- c('rf', 'xgbTree', 'multinom', 'knn')
+# 
+# models <- caretList(outcome~., data=train, trControl=control, methodList=algorithmList)
+# results <- resamples(models)
+# summary(results)
+# dotplot(results)
+```
+
+```{r}
+preds_z_log_r_test <- predict(model_z_log_r, newdata=test)
+length(preds_z_log_r_test)
+
+preds_z_knn_test <- predict(model_z_knn, newdata=test)
+length(preds_z_knn_test)
+
+# outcome <- matrix(as.factor('W'), ncol = 1, nrow = 1999)
+# y <- data.frame(outcome)
+# test  = cbind(test,y)
+
+stacked_preds_test =  data.frame(rf = preds_z_rf_test,xgb = preds_z_xgbTree_test,log_r = preds_z_log_r_test,knn = preds_z_knn_test)
+dim(stacked_preds_test)
+preds_z_final_glm_test <- predict(model_z_final_glm, stacked_preds_test)
+```
+
+```{r}
+# stacked_preds <- predict(stack_xgb, newdata=stacked_preds)
+# length(preds_z_xgb_stack_test)
+```
+
+
+# create output file
+```{r}
+output = data.frame(test_raw_data$ID,preds_z_final_glm_test)
+names(output)=c('ID','Outcome')
+dim(output)
+str(output)
+write.csv(output,file="output_xgb_stack.csv",row.names=FALSE)
+```
+
+```{r}
+# prepare output file
+predictions = predict(model_z,pred_base)
+predictions_c5 = predict(model_z_c5,pred_base)
+output = data.frame(test$ID,predictions)
+summary(output)
+dim(output)
+names(output)=c('ID','Outcome')
+write.csv(output,file="output.csv",row.names=FALSE)
+confusionMatrix(predictions,predictions_c5)
+```

@@ -1,0 +1,76 @@
+---
+title: "20181103_HOTE"
+author: "Amith Prasad"
+date: "11/4/2018"
+output: html_document
+---
+
+```{r}
+rm(list = ls(all=TRUE))
+```
+
+```{r}
+cancer_data = read.csv("/Users/amithprasad/repos/insofe_data_sc/20181103/20181103_Batch47_CSE7305c_SVM_Lab/cancer_diagnosis.csv")
+```
+
+```{r}
+str(cancer_data)
+```
+
+```{r}
+cancer_data$Cancer <- as.factor(cancer_data$Cancer)
+```
+
+```{r}
+cancer_data <- cancer_data[ , !(colnames(cancer_data) %in% "id")]
+```
+
+```{r}
+sum(is.na(cancer_data))
+```
+
+```{r}
+library(caret)
+set.seed(1234)
+
+index_train <- createDataPartition(cancer_data$Cancer, p = 0.7, list = F)
+
+pre_train <- cancer_data[index_train, ]
+
+pre_test <- cancer_data[-index_train, ]
+```
+
+```{r}
+std_method <- preProcess(pre_train, method = c("center", "scale"))
+
+train_data <- predict(std_method, pre_train)
+ 
+test_data <- predict(std_method, pre_test)
+```
+
+
+```{r}
+library(caret)
+
+sampling_strategy <- trainControl(method = "repeatedcv", number = 4, repeats = 10)
+
+svm_fine_model_c <- train(Cancer ~ . , train_data, method = "svmLinear",
+                     tuneGrid = data.frame(.C = c(10^-3, 10^-2.5, 10^-2.1, 10^-1.5, 10^-1.2, 10^-0.6)), trControl = sampling_strategy, metric = "Recall")
+
+svm_fine_model_c
+```
+
+```{r}
+preds_svm <- predict(svm_fine_model_c, test_data)
+
+preds_svm_optimized <- predict(svm_fine_model_c, test_data)
+
+confusionMatrix(preds_svm, test_data$Cancer)
+
+confusionMatrix(preds_svm_optimized, test_data$Cancer)
+```
+
+
+
+
+
