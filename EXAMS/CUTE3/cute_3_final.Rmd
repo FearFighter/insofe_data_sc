@@ -13,7 +13,7 @@ setwd(dir = "/Users/amithprasad/repos/insofe_data_sc/EXAMS/CUTE3")
 
 # Train data import and preprocessing 
 ```{r}
-train = read.csv("train-1542197608821.csv")
+train = read.csv("train-1542197608821.csv") 
 ```
 
 ```{r}

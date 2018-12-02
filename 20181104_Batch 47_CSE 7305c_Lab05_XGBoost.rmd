@@ -1,0 +1,308 @@
+---
+title: "XGBoost Trees"
+author: "Insofe Lab - Batch 47"
+date: "4th Nov 2018"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+---
+
+# Agenda 
+
+* Read in the data
+
+* Data Pre-processing
+
+* Understand XGBoost Parameters
+
+* Build an XGBoost Model
+
+* Tune the XGBoost Model using Caret
+
+* Report Metrics of the XGBoost model on Test Data
+
+# Intro to Gradient Boosting
+
+* After starting with an arbitrary constant value **y_predicted1**, we can follow the below steps to build gradient boosted trees
+
+![](img/gb1f.png)
+
+![](img/gb1.png)
+
+![](img/gb2f.png)
+
+![](img/gb2.png)
+
+![](img/gb3f.png)
+
+![](img/gb3.png)
+
+* You can find the XGBoost paper at [here](https://arxiv.org/pdf/1603.02754.pdf) 
+
+# Installation instructions
+
+To intall xgboost on your system please follow this [link] (http://xgboost.readthedocs.io/en/latest/build.html)
+
+
+# Reading & Understanding the Data
+
+* Read in the .csv file
+
+```{r}
+rm(list=ls(all=T))
+# change your working directory using the "setwd()" function, if your dataset is located elsewhere
+
+gamma_data <- read.csv("gamma_data.csv")
+
+```
+
+* Get a feel for the data using the str(), summary() functions 
+
+```{r}
+
+str(gamma_data)
+
+summary(gamma_data)
+
+```
+
+The dataset has 3804 observations with 11 variables, the descriptions of the variables are given below :
+
+1) **fLength** :  continuous  # major axis of ellipse [mm]
+
+2) **fWidth**  :   continuous  # minor axis of ellipse [mm] 
+
+3) **fSize**   :    continuous  # 10-log of sum of content of all pixels [in #phot]
+
+4) **fConc**   :    continuous  # ratio of sum of two highest pixels over fSize  [ratio]
+
+5) **fConc1**  :   continuous  # ratio of highest pixel over fSize  [ratio]
+
+6) **fAsym**   :    continuous  # distance from highest pixel to center, projected onto major axis [mm]
+
+7) **fM3Long** :  continuous  # 3rd root of third moment along major axis  [mm] 
+
+8) **fM3Trans**: continuous  # 3rd root of third moment along minor axis  [mm]
+
+9) **fAlpha**  :   continuous  # angle of major axis with vector to origin [deg]
+
+10) **fDist**  :    continuous  # distance from origin to center of ellipse [mm]
+
+11) **class**  :    g (0) , h (1)         # gamma (signal), hydron (background)
+
+
+* Let's look at the head and tail of the dataset
+
+```{r}
+
+head(gamma_data)
+
+tail(gamma_data)
+
+```
+
+
+# Data Pre-processing
+
+* Before we, split our dataset, let's convert the 0 and 1 to a character factor, so that it becomes suitable for the caret train() function, caret does not generally accept classification problems where the target is a numeric 0 ir 1
+
+```{r}
+
+gamma_data$classlabel <- ifelse(gamma_data$class == 0, "g", "h")
+
+```
+
+* Split the dataset into train and test using using stratified sampling
+
+```{r}
+
+library(caret)
+
+set.seed(1234)
+
+index_train <- createDataPartition(gamma_data$class, p = 0.7, list = F)
+
+pre_train <- gamma_data[index_train, ]
+
+pre_test <- gamma_data[-index_train, ]
+
+```
+
+* Standardize all the real valued variables in the dataset using only the train data
+
+```{r}
+
+std_method <- preProcess(pre_train[, !(names(pre_train) %in% "class")], method = c("center", "scale"))
+
+train_data <- predict(std_method, pre_train)
+  
+test_data <- predict(std_method, pre_test)
+
+```
+
+* Convert data into an object of the class "xgb.Dmatrix", which works well with the xgboost model
+
+```{r}
+
+library(xgboost)
+
+train_matrix <- xgb.DMatrix(data = as.matrix(train_data[, !(names(train_data) %in% c("class", "classlabel"))]), 
+                            label = as.matrix(train_data[, names(train_data) %in% "class"]))
+
+test_matrix <- xgb.DMatrix(data = as.matrix(test_data[, !(names(test_data) %in% c("class", "classlabel"))]), 
+                            label = as.matrix(test_data[, names(test_data) %in% "class"]))
+
+```
+
+# Understanding XGBoost Parameters
+
+* XGBoost is an efficient, scalable and regularized implementation of gradient boosting.
+
+* Some general model parameters are given below
+
+* The implemented base learners of most importance are:
+
+1) linear boosted model
+
+2) tree boosted model
+
+```{r}
+# it is used to get general hyperparameter
+# xgbLinear reduce 
+modelLookup("xgbLinear")
+
+```
+
+```{r}
+
+modelLookup("xgbTree")
+#names(getModelInfo())
+
+```
+
+# Basic XGBoost Model
+
+```{r}
+#nthread = -1 if cpu is quadcore means leaving the core which is used in OS  use all the threads
+xgb_model_basic <- xgboost(data = train_matrix, max.depth = 2, eta = 1, nthread = -1, nround = 300, objective = "binary:logistic", verbose = 1, early_stopping_rounds = 10)
+# "binary:logistic means cost function will be of logistic reg
+#verbose = 1 
+xgb.save(xgb_model_basic, "xgb_model_basic")
+rm(xgb_model_basic)
+
+# load binary model to R
+
+```
+
+```{r}
+
+xgb_model_basic <- xgb.load("xgb_model_basic")
+
+basic_preds <- predict(xgb_model_basic, test_matrix)
+
+basic_preds_labels <- ifelse(basic_preds < 0.5, 0, 1)
+
+confusionMatrix(as.factor(basic_preds_labels), as.factor(test_data$class))
+
+```
+
+
+
+# Build an XGBoost Model with parameters
+
+```{r}
+
+params_list <- list("objective" = "binary:logistic",
+              "eta" = 0.1,
+              "early_stopping_rounds" = 10,
+              "max_depth" = 6,
+              "gamma" = 0.5,
+              "colsample_bytree" = 0.6,
+              "subsample" = 0.65,
+              "eval_metric" = "auc",
+              "silent" = 1)
+
+
+```
+
+* gamma -  A node is split only when the resulting split gives a positive reduction in the loss function. Gamma specifies the minimum loss reduction required to make a split.
+
+
+* Parameters available to tune - http://xgboost.readthedocs.io/en/latest/parameter.html
+
+```{r}
+
+xgb_model_with_params <- xgboost(data = train_matrix, params = params_list, nrounds = 500, early_stopping_rounds = 20)
+
+```
+
+
+```{r}
+
+basic_params_preds <- predict(xgb_model_with_params, test_matrix)
+
+basic_params_preds_labels <- ifelse(basic_params_preds < 0.5, 0, 1)
+
+confusionMatrix(as.factor(basic_params_preds_labels), as.factor(test_data$class))
+
+```
+
+
+## Plotting Variable Importance
+
+```{r}
+
+variable_importance_matrix <- xgb.importance(feature_names = colnames(train_matrix), model = xgb_model_with_params)
+
+xgb.plot.importance(variable_importance_matrix)
+
+```
+
+# Tuning an XGBoost Model with the caret package
+
+
+```{r xgb, cache=TRUE}
+
+modelLookup("xgbTree")
+
+sampling_strategy <- trainControl(method = "repeatedcv", number = 5, repeats = 2, verboseIter = F, allowParallel = T)
+
+param_grid <- expand.grid(.nrounds = c(20,30),
+                          .max_depth = c(4, 6),
+                          .eta =c(0.1,0.3),
+                          .gamma = c(0.6, 0.5),
+                          .colsample_bytree = c(0.6, 0.4),
+                          .min_child_weight = 1,
+                          .subsample = c(0.6, 0.9))
+
+xgb_tuned_model <- train(x = train_data[ , !(names(train_data) %in% c("classlabel", "class"))], 
+                         y = train_data[ , names(train_data) %in% c("classlabel")], 
+                         method = "xgbTree",
+                         trControl = sampling_strategy,
+                         tuneGrid = param_grid)
+
+xgb_tuned_model$bestTune
+
+plot(xgb_tuned_model)
+
+```
+
+* A great explanation to the min_child_weight - https://stats.stackexchange.com/questions/317073/explanation-of-min-child-weight-in-xgboost-algorithm
+
+*Taken from the link above- min_child_weight means something like "stop trying to split once your sample size in a node goes below a given threshold".
+
+
+```{r}
+
+tuned_params_preds <- predict(xgb_tuned_model, test_data[ , !(names(train_data) %in% c("classlabel", "class"))])
+
+confusionMatrix(as.factor(tuned_params_preds), as.factor(test_data$classlabel))
+
+```
+
+
+
+
+

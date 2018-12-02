@@ -1,0 +1,506 @@
+---
+title: "MiTH_20181201"
+author: "Amith Prasad"
+date: "12/1/2018"
+output: html_document
+---
+
+```{r}
+rm(list=ls(all=TRUE))
+```
+
+```{r}
+setwd(dir = "/Users/amithprasad/repos/insofe_data_sc/EXAMS/MiTH")
+```
+
+```{r}
+# actual claim amount range
+train = read.csv("Train-1542969243754.csv",header=T,na.strings = c(NA,"?"," ","",".","NA")) 
+
+# details of claim
+train_claim_details = read.csv("Train_ClaimDetails-1542969243754.csv",header=T,na.strings = c(NA,"?"," ","",".","NA"))
+
+# contains details of policy holder
+train_demographics = read.csv("Train_Policy_Demographics-1542969243754.csv",header=T,na.strings = c(NA,"?"," ","",".","NA"))
+```
+
+```{r}
+test = read.csv("Test-1542969243754 (1).csv",header=T,na.strings = c(NA,"?"," ","",".","NA"))
+
+test_claim_details = read.csv("Test_ClaimDetails-1542969243754.csv",header=T,na.strings = c(NA,"?"," ","",".","NA"))
+
+test_demographics = read.csv("Test_Policy_Demographics-1542969243754.csv",header=T,na.strings = c(NA,"?"," ","",".","NA"))
+```
+
+```{r}
+str(train)
+str(train_claim_details)
+str(train_demographics)
+```
+
+
+```{r}
+str(test)
+str(test_claim_details)
+str(test_demographics)
+```
+
+# combining the data from the 3 files and removing claim_id from the other 2 files as its redundant
+```{r}
+train_claim_details = subset(train_claim_details, select = -c(ClaimID))
+train_demographics = subset(train_demographics, select = -c(ClaimID))
+
+test_claim_details = subset(test_claim_details, select = -c(ClaimID))
+test_demographics = subset(test_demographics, select = -c(ClaimID))
+```
+
+```{r}
+complete_train = data.frame(train,train_claim_details,train_demographics)
+str(complete_train)
+```
+
+
+```{r}
+complete_test = data.frame(test,test_claim_details,test_demographics)
+str(complete_test)
+
+```
+
+# frequency distribution of target variable
+```{r}
+table(complete_train$ClaimSize)
+barplot(t(table(complete_train$ClaimSize)))
+```
+
+# there seems to be a class imbalance
+# lessthan100K is twice as much as the other 2 classes
+
+# total NA values
+```{r}
+sum(is.na(complete_train))
+
+```
+
+
+```{r}
+library(DataExplorer)
+create_report(complete_train)
+```
+
+```{r}
+dim(complete_train)
+```
+
+```{r}
+str(complete_train)
+```
+
+# columnwise distribution of NA values
+```{r}
+na_count <-sapply(complete_train, function(y) sum(length(which(is.na(y)))))
+na_count <- data.frame(na_count)
+na_count
+```
+
+
+# SystemicPoisoning_other - 14389 NAs - 99.8% of values are NA
+# Falls - 12403 NAs - 86% of values are NA
+# Match_Multiclaimant_multiInterestedparties_claim - 11662 NAs - 80.89% of values are NAs
+
+# all the columns having atleast 80% or more values as NAs, so dropping them would be a better option as they are providing no useful info
+```{r}
+# complete_train = complete_train[, -which(colMeans(is.na(complete_train)) > 0.8)]
+# str(complete_train)
+# 
+# complete_test = complete_test[, -which(colMeans(is.na(complete_test)) > 0.8)]
+# str(complete_test)
+```
+
+# on running different models with dropping columns having more than 80% NA values the accuracy was hovering around 68%
+# but keeping all the columns resulted in an accuracy hovering around 73%
+# so decided to keep all the columns intact as without removing any column the accuracy is increasing by 5-6%
+
+```{r}
+sum(is.na(complete_train))
+```
+
+# there are 5 columns which have 30% to 70% NA values
+# since this is insurance data imputing doesn't make sense
+# so leaving the rest of the data as it is and renaming NA to 'Dont Know'
+# columnwise distribution of NA values
+```{r}
+na_count <-sapply(complete_train, function(y) sum(length(which(is.na(y)))))
+na_count <- data.frame(na_count)
+na_count
+```
+
+
+# binning NAs to dont_know
+```{r}
+#library(lubridate)
+
+str(complete_train)
+
+complete_train$Work_related_injury_status = as.character(complete_train$Work_related_injury_status)
+complete_train$Work_related_injury_status[is.na(complete_train$Work_related_injury_status)] = "Dont_Know"
+complete_train$Work_related_injury_status = as.factor(complete_train$Work_related_injury_status)
+table(complete_train$Work_related_injury_status)
+
+complete_train$MultipleInjuries = as.character(complete_train$MultipleInjuries)
+complete_train$MultipleInjuries[is.na(complete_train$MultipleInjuries)] = "Dont_Know"
+complete_train$MultipleInjuries = as.factor(complete_train$MultipleInjuries)
+table(complete_train$MultipleInjuries)
+
+complete_train$BackInjury = as.character(complete_train$BackInjury)
+complete_train$BackInjury[is.na(complete_train$BackInjury)] = "Dont_Know"
+complete_train$BackInjury = as.factor(complete_train$BackInjury)
+table(complete_train$BackInjury)
+
+complete_train$OtherInjuries = as.character(complete_train$OtherInjuries)
+complete_train$OtherInjuries[is.na(complete_train$OtherInjuries)] = "Dont_Know"
+complete_train$OtherInjuries = as.factor(complete_train$OtherInjuries)
+table(complete_train$OtherInjuries)
+
+complete_train$OtherMotorVehicle = as.character(complete_train$OtherMotorVehicle)
+complete_train$OtherMotorVehicle[is.na(complete_train$OtherMotorVehicle)] = "Dont_Know"
+complete_train$OtherMotorVehicle = as.factor(complete_train$OtherMotorVehicle)
+table(complete_train$OtherMotorVehicle)
+
+complete_train$Age_Injured = complete_train$Age_Injured/100
+
+```
+
+```{r}
+complete_test$Work_related_injury_status = as.character(complete_test$Work_related_injury_status)
+complete_test$Work_related_injury_status[is.na(complete_test$Work_related_injury_status)] = "Dont_Know"
+complete_test$Work_related_injury_status = as.factor(complete_test$Work_related_injury_status)
+table(complete_test$Work_related_injury_status)
+
+complete_test$MultipleInjuries = as.character(complete_test$MultipleInjuries)
+complete_test$MultipleInjuries[is.na(complete_test$MultipleInjuries)] = "Dont_Know"
+complete_test$MultipleInjuries = as.factor(complete_test$MultipleInjuries)
+table(complete_test$MultipleInjuries)
+
+complete_test$BackInjury = as.character(complete_test$BackInjury)
+complete_test$BackInjury[is.na(complete_test$BackInjury)] = "Dont_Know"
+complete_test$BackInjury = as.factor(complete_test$BackInjury)
+table(complete_test$BackInjury)
+
+complete_test$OtherInjuries = as.character(complete_test$OtherInjuries)
+complete_test$OtherInjuries[is.na(complete_test$OtherInjuries)] = "Dont_Know"
+complete_test$OtherInjuries = as.factor(complete_test$OtherInjuries)
+table(complete_test$OtherInjuries)
+
+complete_test$OtherMotorVehicle = as.character(complete_test$OtherMotorVehicle)
+complete_test$OtherMotorVehicle[is.na(complete_test$OtherMotorVehicle)] = "Dont_Know"
+complete_test$OtherMotorVehicle = as.factor(complete_test$OtherMotorVehicle)
+table(complete_test$OtherMotorVehicle)
+
+complete_test$Age_Injured = complete_test$Age_Injured/100
+
+```
+
+# converting numerical to numeric
+```{r}
+train_num_data = subset(complete_train,select=c(Age_Injured,PrimaFacie_percentagefault_injured,PrimaFacie_percentagefault_insured,PrimaFacie_percentagefault_otherinsured,PrimaFacie_percentagefault_uninsured,BusinessClass,Perperson_Policylimit,PerOccurrence_PolicyLimit,CombinedSingleLimit, PolicyLimitPerInjury))
+
+train_cat_data = subset(complete_train,select=-c(Age_Injured,PrimaFacie_percentagefault_injured,PrimaFacie_percentagefault_insured,PrimaFacie_percentagefault_otherinsured,PrimaFacie_percentagefault_uninsured,BusinessClass,Perperson_Policylimit,PerOccurrence_PolicyLimit,CombinedSingleLimit, PolicyLimitPerInjury))
+
+test_num_data = subset(complete_test,select=c(Age_Injured,PrimaFacie_percentagefault_injured,PrimaFacie_percentagefault_insured,PrimaFacie_percentagefault_otherinsured,PrimaFacie_percentagefault_uninsured,BusinessClass,Perperson_Policylimit,PerOccurrence_PolicyLimit,CombinedSingleLimit, PolicyLimitPerInjury))
+
+test_cat_data = subset(complete_test,select=-c(Age_Injured,PrimaFacie_percentagefault_injured,PrimaFacie_percentagefault_insured,PrimaFacie_percentagefault_otherinsured,PrimaFacie_percentagefault_uninsured,BusinessClass,Perperson_Policylimit,PerOccurrence_PolicyLimit,CombinedSingleLimit, PolicyLimitPerInjury))
+
+```
+
+```{r}
+train_num_data = data.frame(
+  apply(train_num_data,2,function(x){as.numeric(x)}))
+
+train_cat_data = data.frame(
+  apply(train_cat_data,2,function(x){as.factor(x)}))
+
+test_num_data = data.frame(
+  apply(test_num_data,2,function(x){as.numeric(x)}))
+
+test_cat_data = data.frame(
+  apply(test_cat_data,2,function(x){as.factor(x)}))
+```
+
+
+# scaling numeric data
+```{r}
+# train_num_data = scale(train_num_data)
+# dim(train_num_data)
+# str(train_num_data)
+# summary(train_num_data)
+# 
+# test_num_data = scale(test_num_data)
+# dim(test_num_data)
+# str(test_num_data)
+# summary(test_num_data)
+```
+
+# tried scaling and the accuracy without scaling seems to be higher that with scaling, so decided to not scale the numeric values
+
+# id and date columns are not adding any significance to the dataset
+# so removing id and date columns
+```{r}
+train_cat_data$ClaimID = NULL
+train_cat_data$PolicyID = NULL
+train_cat_data$Injury_Date = NULL
+train_cat_data$Date_reported = NULL
+
+test_cat_data$ClaimID = NULL
+test_cat_data$PolicyID = NULL
+test_cat_data$Injury_Date = NULL
+test_cat_data$Date_reported = NULL
+```
+
+# dummyfying the categorical variables
+```{r}
+library("dummies")
+dim(train_cat_data)
+train_cat_data = dummy.data.frame(data = train_cat_data, names = names(test_cat_data))
+dim(train_cat_data)
+
+dim(train_cat_data)
+test_cat_data = dummy.data.frame(data = test_cat_data, names = names(test_cat_data))
+dim(test_cat_data)
+```
+
+#combining num and cat data
+```{r}
+train_data = cbind(train_num_data,train_cat_data)
+test_data = cbind(test_num_data,test_cat_data)
+
+dim(train_data)
+dim(test_data)
+```
+
+```{r}
+library(caret)
+set.seed(500) 
+```
+
+# k cross validation
+# cross validation does a train - test split of 80-20 and runs it k times
+# k=5
+
+```{r}
+#train.control <- trainControl(method = "cv", number = 5)
+train.control <- trainControl(method = "repeatedcv", number = 5, repeats = 3)
+```
+
+# seed = 500
+# accuracy = 0.6338345
+# all columns intact = 0.6914080
+```{r}
+model_logr <- train(ClaimSize ~ .,data=train_data, method = "multinom", trControl = train.control)
+print(model_logr)
+```
+
+# seed = 673
+# accuracy = 0.6251645
+```{r}
+# Train the model - Decision Tree
+model_knn <- train(ClaimSize ~ .,data=train_data, method = "knn", trControl = train.control)
+# Summarize the results
+print(model_knn)
+
+```
+
+# seed = 673
+# accuracy = 0.5035712
+```{r}
+# Train the model - Naive Bayes
+model_nb <- train(ClaimSize ~ .,data=train_data, method = "naive_bayes", trControl = train.control)
+# Summarize the results
+print(model_nb)
+```
+
+# seed = 673
+# accuracy = 0.6270352
+```{r}
+# Train the model - Decision Tree
+model_svm <- train(ClaimSize ~ .,data=train_data, method = "lssvmRadial", trControl = train.control)
+# Summarize the results
+print(model_svm)
+
+```
+
+# seed = 673
+# accuracy = 0.6239163
+```{r}
+# Train the model - Decision Tree
+model_svm_linear <- train(ClaimSize ~ .,data=train_data, method = "svmLinear", trControl = train.control)
+# Summarize the results
+print(model_svm_linear)
+
+```
+
+# seed = 500
+# mtry = 6.708204
+# ntree = 200
+# accuracy = 0.6789208 
+
+# seed = 500
+# mtry = 6.708204
+# ntree = 500
+# accuracy = 0.6777412
+
+# seed = 500
+# mtry = 6.708204
+# ntree = 400
+# accuracy = 0.6776043
+
+# seed = 673
+# mtry = 6.708204
+# ntree = 400
+# accuracy = 0.6784341
+
+# seed = 673
+# mtry = 6.708204
+# ntree = 200
+# accuracy = 0.6786429 
+
+
+# seed = 673
+# mtry = 6.708204
+# ntree = 200
+# accuracy = 0.7313578
+# all features intact
+
+
+```{r}
+# Train the model - Random Forrest
+mtry <- c(sqrt(ncol(train_data)))
+print(mtry)
+tunegrid <- expand.grid(.mtry=mtry)
+metric <- "Accuracy"
+model_rf_200 <- train(ClaimSize ~ .,data=train_data, ntree = 200, method = "rf", metric=metric, tuneGrid=tunegrid, trControl = train.control)
+# Summarize the results
+print(model_rf_200)
+```
+
+```{r}
+# Train the model - Random Forrest
+mtry <- c(sqrt(ncol(train_data)))
+print(mtry)
+tunegrid <- expand.grid(.mtry=mtry)
+metric <- "Accuracy"
+model_rf <- train(ClaimSize ~ .,data=train_data, ntree = 500, method = "rf", metric=metric, tuneGrid=tunegrid, trControl = train.control)
+# Summarize the results
+print(model_rf)
+```
+
+# seed = 673
+# accuracy = 0.6730933
+
+
+```{r}
+# Train the model - XG Boost
+metric <- "Accuracy"
+# param_grid <- expand.grid(.nrounds = 1000,
+#                           .max_depth = c(2, 4, 6, 8, 10),
+#                           .eta = c(0.01, 0.001, 0.0001),
+#                           .gamma = 1,
+#                           .colsample_bytree = c(0.6, 0.4),
+#                           .min_child_weight = 1,
+#                           .subsample = c(0.6, 0.9))
+# model_z_xgbTree <- train(outcome ~ .,data=train, metric=metric, method = "xgbTree", trControl = train.control, tuneGrid = param_grid)
+model_xgbTree <- train(ClaimSize ~ .,data=train_data, metric=metric, method = "xgbTree", trControl = train.control)
+# Summarize the results
+print(model_xgbTree)
+```
+
+
+# log R
+# NB
+# SVM
+# KNN
+# RF
+#XGB
+
+# comparing results of different models
+```{r}
+results <- resamples(list(log_r = model_logr, knn = model_knn, nb = model_nb, svm = model_svm, svm_linear = model_svm_linear, rf_200 = model_rf_200, rf = model_rf, xgb = model_xgbTree))
+summary(results)
+dotplot(results)
+```
+
+
+# predict on train
+```{r}
+preds_log_r <- predict(model_logr, train_data)
+confusionMatrix(data = preds_log_r, reference = train_data$ClaimSize)
+
+preds_nb <- predict(model_nb, train_data)
+confusionMatrix(data = preds_nb, reference = train_data$ClaimSize)
+
+preds_knn <- predict(model_knn, train_data)
+confusionMatrix(data = preds_knn, reference = train_data$ClaimSize)
+
+preds_svm <- predict(model_svm, train_data)
+confusionMatrix(data = preds_svm, reference = train_data$ClaimSize)
+
+preds_rf <- predict(model_rf, train_data)
+confusionMatrix(data = preds_rf, reference = train_data$ClaimSize)
+
+preds_xgbTree <- predict(model_xgbTree, train_data)
+confusionMatrix(data = preds_xgbTree, reference = train_data$ClaimSize)
+```
+
+# predict on test
+# individual predictors
+```{r}
+
+preds_log_r_test <- predict(model_logr, newdata=test_data)
+length(preds_log_r_test)
+
+preds_nb_test <- predict(model_nb, test_data)
+length(preds_nb_test)
+
+preds_knn_test <- predict(model_knn, newdata=test_data)
+length(preds_knn_test)
+
+preds_svm_test <- predict(model_svm, newdata=test_data)
+length(preds_svm_test)
+
+preds_rf_test <- predict(model_rf, newdata=test_data)
+length(preds_rf_test)
+
+preds_xbgTree_test <- predict(model_xgbTree, newdata=test_data)
+length(preds_xbgTree_test)
+
+```
+
+# log R
+# NB
+# SVM
+# KNN
+# RF
+#XGB
+
+# create output file
+```{r}
+test_raw_data = read.csv("Test-1542969243754 (1).csv",header=T,na.strings = c(NA,"?"," ","",".","NA"))
+
+output = data.frame(test_raw_data$ClaimID,preds_rf_test)
+
+names(output)=c('ClaimID','ClaimSize')
+dim(output)
+str(output)
+
+write.csv(output,file="output_rf.csv",row.names=FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+

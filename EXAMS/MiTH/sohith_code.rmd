@@ -1,0 +1,1097 @@
+title: "Insurance Liability Classification"
+author: "Sohith"
+date: "1 December 2018"
+output: html_document
+---
+Problem Statement:
+Tort reform, to limit number and size of claims, is a contentious subject between consumer activists, claimants, Insurers and Lawyers. While there is a financial risk to the Society by way of wasting tax dollars or exodus of Insurers due to frivolous law suits, excessive court awards and exorbitant fees charged by Lawyers, leading to unsustainable Insurance rates, the ability and affordability of an individual or group of similar individuals affected for justice can not be overlooked. The ???failure to warn??? related laws concerning dangers of using their products/services were introduced in each line of business as part of the reform and the liability was limited as a result of reform where the manufacturer/service provided warned in an approved way.  
+
+In this context, the data of liability claims involving bodily injury settled is studied for various factors that contribute to size of claim. The data includes claims for General liability, medical professional liability, other professional liability, commercial automobile liability lines of business and the liability portion of commercial multi-peril insurance from insurance companies and self-insurers. There may be occasions where there is availability of some collateral sources of reimbursements to the injured person.
+
+In this data, the claim size has been categorized into three levels viz., lessthan100K, 100K-lessthan200K    & 200KandAbove .
+
+Motivation for predictive analytics: While predicting the cases ???200KandAbove??? which are likely to result in litigation helps early intervention with suitable defence strategies and/or a settlement with claimants to avoid litigation, and reduce litigation expenses, it also helps allocation of appropriately experienced internal resources and attorneys. It also helps prepare expert witnesses to testify and reduce the claim costs. The claims predicted as ???100K-lessthan200K???, potentially could develop into unexpected high severity claims of size more than $200K. So it is even more important, in such cases, to evaluate the mutual strengths to convince panel to force arbitration and avoid litigation and/or to explore the possibility of settlement. Identification of cases ???lessthan100K???  will help save the resources and allocate them to standard claim settlement operations team for expeditious settlement.
+
+Data:
+Train.csv & Test.csv (ClaimID and Target attribute:???ClaimSize???, but Test.csv doesn???t have Target attribute as it is to be predicted)
+Train_ClaimDetails.csv & Test_ClaimDetails.csv
+Train_Policy_Demographics.csv & Test_Policy_Demographics.csv
+Supporting file : MITH_AttributeDetails.csv,
+
+Objective:
+You are expected to  create an analytical and modeling framework to predict the claim size of  each ClaimID as either of three classes ( ???lessthan100K???, ???100K-lessthan200K???    & ???200KandAbove???) based on the quantitative and qualitative features provided in the data.   
+
+Evaluation Metric: Accuracy
+
+ 
+```{r}
+rm(list = ls(all=TRUE))
+#setwd("/home/sohith/Downloads/MITH")
+setwd(dir = "/Users/amithprasad/repos/insofe_data_sc/EXAMS/MiTH")
+```
+*** Aim: To generate an analytical and predictive model on the liability based on demographics and cliams
+
+*** Intuition: Since this problem requires us to analyze and see how each feature affects the claimsize we omit unexplainable models like svms, gradient boosting, pca analysis etc
+*** Let's Read the data
+
+
+```{r}
+train = read.csv("Train-1542969243754.csv",header=T, na.strings = c('?','','na'))
+train_policy_demographics = read.csv("Train_Policy_Demographics-1542969243754.csv",header=T, na.strings = c('?','','na'))
+train_claims = read.csv("Train_ClaimDetails-1542969243754.csv",header=T, na.strings = c('?','','na'))
+test = read.csv("Test-1542969243754.csv",header=T, na.strings = c('?','','na'))
+test_policy_demographics= read.csv("Test_Policy_Demographics-1542969243754.csv",header=T, na.strings = c('?','','na'))
+test_claims = read.csv("Test_ClaimDetails-1542969243754.csv",header=T, na.strings = c('?','','na'))
+attributes = read.csv("MITH_AttributeDetails-1542969243754.csv",header=T, na.strings = c('?','','na'))
+```
+###  To Understand the Data set lets visualize the training data
+```{r}
+summary(train)
+```
+*** we can observe that lessthan100K are nearly twice that of 100k to 200k and above 200K claims
+*** we can also observe that 200K and above costs more than twice that of less than 100K claims so we have to increase the weight to 200K keeping the business objective of reducing the claim money to be paid so we have to predict those above 200K claims more accurately than those of 100K 
+*** we have to predict the claim size based on the policy demographcis and claim details
+```{r}
+summary(train_policy_demographics)
+```
+```{r}
+summary(test)
+```
+
+```{r}
+summary(train_claims)
+```
+***
+```{r}
+dim(train)
+```
+
+```{r}
+summary(test_claims)
+```
+
+```{r}
+summary(test_policy_demographics)
+```
+
+
+```{r}
+summary(test_claims)
+```
+
+```{r}
+str(train)
+```
+
+```{r}
+str(train_claims)
+```
+```{r}
+str(train_policy_demographics)
+```
+
+```{r}
+str(test)
+```
+
+```{r}
+str(test_claims)
+```
+```{r}
+str(test_policy_demographics)
+```
+*** lets combine them all into one train file and test file and then we shall proceed to preprocess and cleaning of data
+```{r}
+
+train_merged <-merge(train_claims,train_policy_demographics,by.x="ClaimID", by.y="ClaimID")
+```
+
+```{r}
+train_merged_label <-merge(train_merged,train,by.x="ClaimID", by.y="ClaimID")
+```
+*** lets do the same with test data
+
+```{r}
+test_merged <-merge(test_claims,test_policy_demographics,by.x="ClaimID", by.y="ClaimID")
+test_merged_label <- test_merged
+```
+
+```{r}
+str(train_merged_label)
+```
+```{r}
+X=train_merged_label
+```
+
+```{r}
+Y=test_merged_label
+```
+
+```{r}
+dim(X)
+```
+```{r}
+dim(Y)
+```
+*** let us check each feauture and clean or preprocess as required
+```{r}
+str(X)
+```
+```{r}
+attributes
+```
+*** We will preprocess the data and clean up and do the same parallely on the test data
+```{r}
+#Age_Injured is in the format of YYYMM format
+# just by dividing it with 100 we can get age in decimals (approximately) we leave out the months part
+X['Age_Injured']= X['Age_Injured']/100
+Y['Age_Injured']= Y['Age_Injured']/100
+```
+*** Since this is insurance policy data and each feature like Amputation, BrainDamage etc will have huge claim liability we should not remove them even when the columns have more NA's this is because our policy type and cliam amount critically depends on these features. So instead we will keep the available information and whenever not available we will use the name "NotAvailable" to signify the lack of information. 
+```{r}
+col_names_X = names(X)
+print(col_names_X)
+```
+
+```{r}
+
+# on train data
+
+X$Employment_status<-as.character(X$Employment_status)
+X$Employment_status[is.na(X$Employment_status)] = "NotAvailable" 
+X$Employment_status[X$Employment_status=='Y'] = "Yes" 
+X$Employment_status[X$Employment_status=='N'] = "No" 
+X$Employment_status<-as.factor(X$Employment_status)
+
+X$Work_related_injury_status<-as.character(X$Work_related_injury_status)
+X$Work_related_injury_status[is.na(X$Work_related_injury_status)] = "NotAvailable" 
+X$Work_related_injury_status[X$Work_related_injury_status=='Y'] = "Yes" 
+X$Work_related_injury_status[X$Work_related_injury_status=='N'] = "No" 
+X$Work_related_injury_status<-as.factor(X$Work_related_injury_status)
+
+
+X$Death<-as.character(X$Death)
+X$Death[is.na(X$Death)] = "NotAvailable" 
+X$Death[X$Death=='A'] = "Yes" 
+X$Death<-as.factor(X$Death)
+
+X$Amputation<-as.character(X$Amputation)
+X$Amputation[is.na(X$Amputation)] = "NotAvailable" 
+X$Amputation[X$Amputation=='B'] = "Yes" 
+X$Amputation<-as.factor(X$Amputation)
+
+X$Burns_heat<-as.character(X$Burns_heat)
+X$Burns_heat[is.na(X$Burns_heat)] = "NotAvailable" 
+X$Burns_heat[X$Burns_heat=='C'] = "Yes" 
+X$Burns_heat<-as.factor(X$Burns_heat)
+
+X$Burns_chemical<-as.character(X$Burns_chemical)
+X$Burns_chemical[is.na(X$Burns_chemical)] = "NotAvailable" 
+X$Burns_chemical[X$Burns_chemical=='D'] = "Yes" 
+X$Burns_chemical<-as.factor(X$Burns_chemical)
+
+X$SystemicPoisoning_toxic<-as.character(X$SystemicPoisoning_toxic)
+X$SystemicPoisoning_toxic[is.na(X$SystemicPoisoning_toxic)] = "NotAvailable" 
+X$SystemicPoisoning_toxic[X$SystemicPoisoning_toxic=='E'] = "Yes" 
+X$SystemicPoisoning_toxic<-as.factor(X$Burns_chemical)
+
+X$SystemicPoisoning_other<-as.character(X$SystemicPoisoning_other)
+X$SystemicPoisoning_other[is.na(X$SystemicPoisoning_other)] = "NotAvailable" 
+X$SystemicPoisoning_other[X$SystemicPoisoning_other=='F'] = "Yes" 
+X$SystemicPoisoning_other[X$SystemicPoisoning_other=='NA'] = "NotAvailable"
+X$SystemicPoisoning_other<-as.factor(X$SystemicPoisoning_other)
+
+
+
+X$Eye_injury_blindness<-as.character(X$Eye_injury_blindness)
+X$Eye_injury_blindness[is.na(X$Eye_injury_blindness)] = "NotAvailable" 
+X$Eye_injury_blindness[X$Eye_injury_blindness=='G'] = "Yes" 
+X$Eye_injury_blindness<-as.factor(X$Eye_injury_blindness)
+
+X$RespiratoryCondition<-as.character(X$RespiratoryCondition)
+X$RespiratoryCondition[is.na(X$RespiratoryCondition)] = "NotAvailable" 
+X$RespiratoryCondition[X$RespiratoryCondition=='H'] = "Yes" 
+X$RespiratoryCondition<-as.factor(X$RespiratoryCondition)
+
+
+X$NervousCondition<-as.character(X$NervousCondition)
+X$NervousCondition[is.na(X$NervousCondition)] = "NotAvailable" 
+X$NervousCondition[X$NervousCondition=='I'] = "Yes" 
+X$NervousCondition<-as.factor(X$NervousCondition)
+
+X$HearingLoss<-as.character(X$HearingLoss)
+X$HearingLoss[is.na(X$HearingLoss)] = "NotAvailable" 
+X$HearingLoss[X$HearingLoss=='J'] = "Yes" 
+X$HearingLoss<-as.factor(X$HearingLoss)
+
+X$CirculatoryCondition<-as.character(X$CirculatoryCondition)
+X$CirculatoryCondition[is.na(X$CirculatoryCondition)] = "NotAvailable" 
+X$CirculatoryCondition[X$CirculatoryCondition=='K'] = "Yes" 
+X$CirculatoryCondition<-as.factor(X$CirculatoryCondition)
+
+X$MultipleInjuries<-as.character(X$MultipleInjuries)
+X$MultipleInjuries[is.na(X$MultipleInjuries)] = "NotAvailable" 
+X$MultipleInjuries[X$MultipleInjuries=='L'] = "Yes" 
+X$MultipleInjuries<-as.factor(X$MultipleInjuries)
+
+X$BackInjury<-as.character(X$BackInjury)
+X$BackInjury[is.na(X$BackInjury)] = "NotAvailable" 
+X$BackInjury[X$BackInjury=='M'] = "Yes" 
+X$BackInjury<-as.factor(X$BackInjury)
+
+X$SkinDisorder<-as.character(X$SkinDisorder)
+X$SkinDisorder[is.na(X$SkinDisorder)] = "NotAvailable" 
+X$SkinDisorder[X$SkinDisorder=='N'] = "Yes" 
+X$SkinDisorder<-as.factor(X$SkinDisorder)
+
+X$BrainDamage<-as.character(X$BrainDamage)
+X$BrainDamage[is.na(X$BrainDamage)] = "NotAvailable" 
+X$BrainDamage[X$BrainDamage=='O'] = "Yes" 
+X$BrainDamage<-as.factor(X$BrainDamage)
+
+X$Scarring<-as.character(X$Scarring)
+X$Scarring[is.na(X$Scarring)] = "NotAvailable" 
+X$Scarring[X$Scarring=='P'] = "Yes" 
+X$Scarring<-as.factor(X$Scarring)
+
+X$SpinalCordInjuries<-as.character(X$SpinalCordInjuries)
+X$SpinalCordInjuries[is.na(X$SpinalCordInjuries)] = "NotAvailable" 
+X$SpinalCordInjuries[X$SpinalCordInjuries=='Q'] = "Yes" 
+X$SpinalCordInjuries<-as.factor(X$SpinalCordInjuries)
+
+X$OtherInjuries<-as.character(X$OtherInjuries)
+X$OtherInjuries[is.na(X$OtherInjuries)] = "NotAvailable" 
+X$OtherInjuries[X$OtherInjuries=='R'] = "Yes" 
+X$OtherInjuries<-as.factor(X$OtherInjuries)
+
+X$OffRoadVehicle<-as.character(X$OffRoadVehicle)
+X$OffRoadVehicle[is.na(X$OffRoadVehicle)] = "NotAvailable" 
+X$OffRoadVehicle[X$OffRoadVehicle=='A'] = "Yes" 
+X$OffRoadVehicle<-as.factor(X$OffRoadVehicle)
+
+X$AirTransportation<-as.character(X$AirTransportation)
+X$AirTransportation[is.na(X$AirTransportation)] = "NotAvailable" 
+X$AirTransportation[X$AirTransportation=='B'] = "Yes" 
+X$AirTransportation<-as.factor(X$AirTransportation)
+
+X$Railway<-as.character(X$Railway)
+X$Railway[is.na(X$Railway)] = "NotAvailable" 
+X$Railway[X$Railway=='C'] = "Yes" 
+X$Railway<-as.factor(X$Railway)
+
+X$OtherMotorVehicle<-as.character(X$OtherMotorVehicle)
+X$OtherMotorVehicle[is.na(X$OtherMotorVehicle)] = "NotAvailable" 
+X$OtherMotorVehicle[X$OtherMotorVehicle=='D'] = "Yes" 
+X$OtherMotorVehicle<-as.factor(X$OtherMotorVehicle)
+
+X$SurgicalCare<-as.character(X$SurgicalCare)
+X$SurgicalCare[is.na(X$SurgicalCare)] = "NotAvailable" 
+X$SurgicalCare[X$SurgicalCare=='E'] = "Yes" 
+X$SurgicalCare<-as.factor(X$SurgicalCare)
+
+X$Falls<-as.character(X$Falls)
+X$Falls[is.na(X$Falls)] = "NotAvailable" 
+X$Falls[X$Falls=='F'] = "Yes"
+X$Falls[X$Falls=='NA'] = "NotAvailable" 
+X$Falls<-as.factor(X$Falls)
+
+X$Drowning<-as.character(X$Drowning)
+X$Drowning[is.na(X$Drowning)] = "NotAvailable" 
+X$Drowning[X$Drowning=='G'] = "Yes" 
+X$Drowning<-as.factor(X$Drowning)
+
+X$UseOfDefectiveProduct<-as.character(X$UseOfDefectiveProduct)
+X$UseOfDefectiveProduct[is.na(X$UseOfDefectiveProduct)] = "NotAvailable" 
+X$UseOfDefectiveProduct[X$UseOfDefectiveProduct=='H'] = "Yes" 
+X$UseOfDefectiveProduct<-as.factor(X$UseOfDefectiveProduct)
+
+X$Fire<-as.character(X$Fire)
+X$Fire[is.na(X$Fire)] = "NotAvailable" 
+X$Fire[X$Fire=='I'] = "Yes" 
+X$Fire<-as.factor(X$Fire)
+
+X$Firearm<-as.character(X$Firearm)
+X$Firearm[is.na(X$Firearm)] = "NotAvailable" 
+X$Firearm[X$Firearm=='J'] = "Yes" 
+X$Firearm<-as.factor(X$Firearm)
+
+X$Pollution_ToxicExposure<-as.character(X$Pollution_ToxicExposure)
+X$Pollution_ToxicExposure[is.na(X$Pollution_ToxicExposure)] = "NotAvailable" 
+X$Pollution_ToxicExposure[X$Pollution_ToxicExposure=='K'] = "Yes" 
+X$Pollution_ToxicExposure<-as.factor(X$Pollution_ToxicExposure)
+
+X$Explosions<-as.character(X$Explosions)
+X$Explosions[is.na(X$Explosions)] = "NotAvailable" 
+X$Explosions[X$Explosions=='L'] = "Yes" 
+X$Explosions<-as.factor(X$Explosions)
+
+X$UseOfAgrlMachinery<-as.character(X$UseOfAgrlMachinery)
+X$UseOfAgrlMachinery[is.na(X$UseOfAgrlMachinery)] = "NotAvailable" 
+X$UseOfAgrlMachinery[X$UseOfAgrlMachinery=='M'] = "Yes" 
+X$UseOfAgrlMachinery<-as.factor(X$UseOfAgrlMachinery)
+
+X$Oil_gasExtraction<-as.character(X$Oil_gasExtraction)
+X$Oil_gasExtraction[is.na(X$Oil_gasExtraction)] = "NotAvailable" 
+X$Oil_gasExtraction[X$Oil_gasExtraction=='N'] = "Yes" 
+X$Oil_gasExtraction<-as.factor(X$Oil_gasExtraction)
+
+X$OtherModeOfInjury<-as.character(X$OtherModeOfInjury)
+X$OtherModeOfInjury[is.na(X$OtherModeOfInjury)] = "NotAvailable" 
+X$OtherModeOfInjury[X$OtherModeOfInjury=='O'] = "Yes" 
+X$OtherModeOfInjury<-as.factor(X$OtherModeOfInjury)
+
+X$PolicyType<-as.character(X$PolicyType)
+X$PolicyType[is.na(X$PolicyType)] = "NotAvailable" 
+X$PolicyType[X$PolicyType=='1'] = "Monoline_general"
+X$PolicyType[X$PolicyType=='2'] = "Commercial_auto"
+X$PolicyType[X$PolicyType=='3'] = "Commercial_multiperil"
+X$PolicyType[X$PolicyType=='4'] = "Medical_professional"
+X$PolicyType[X$PolicyType=='5'] = "Other_professionals"
+X$PolicyType<-as.factor(X$PolicyType)
+
+X$PolicyForm<-as.character(X$PolicyForm)
+X$PolicyForm[is.na(X$PolicyForm)] = "NotAvailable" 
+X$PolicyForm[X$PolicyForm=='1'] = "Occurrence" 
+X$PolicyForm[X$PolicyForm=='2'] = "ClaimsMade"
+X$PolicyForm<-as.factor(X$PolicyForm)
+
+X$BusinessClass<-as.character(X$BusinessClass)
+X$BusinessClass[is.na(X$BusinessClass)] = "NotAvailable" 
+X$BusinessClass[X$BusinessClass=='1'] = "Agriculture"
+X$BusinessClass[X$BusinessClass=='2'] = "Mining"
+X$BusinessClass[X$BusinessClass=='3'] = "Manufacturer chemical allied products"
+X$BusinessClass[X$BusinessClass=='4'] = "Medical products manufacturer"
+X$BusinessClass[X$BusinessClass=='5'] = "Drug manufacturers"
+X$BusinessClass[X$BusinessClass=='6'] = "Other products manufacturers"
+X$BusinessClass[X$BusinessClass=='7'] = "Transportation"
+X$BusinessClass[X$BusinessClass=='8'] = "Wholesale retail trade"
+X$BusinessClass[X$BusinessClass=='9'] = "Municipal or public liability"
+X$BusinessClass[X$BusinessClass=='10'] = "Schools"
+X$BusinessClass[X$BusinessClass=='11'] = "Daycare centers"
+X$BusinessClass[X$BusinessClass=='12'] = "liquor liability"
+X$BusinessClass[X$BusinessClass=='13'] = "Nonprofit organizations"
+X$BusinessClass[X$BusinessClass=='14'] = "Medical_professional"
+X$BusinessClass[X$BusinessClass=='15'] = "Oil wells drillings"
+X$BusinessClass[X$BusinessClass=='16'] = "Apartments townhomes condos"
+X$BusinessClass[X$BusinessClass=='17'] = "Office"
+X$BusinessClass[X$BusinessClass=='18'] = "Churches"
+X$BusinessClass[X$BusinessClass=='19'] = "Physicians surgeons"
+X$BusinessClass[X$BusinessClass=='20'] = "Dentists"
+X$BusinessClass[X$BusinessClass=='21'] = "Oral surgeons"
+X$BusinessClass[X$BusinessClass=='22'] = "Hospital"
+X$BusinessClass[X$BusinessClass=='23'] = "Nursing Home"
+X$BusinessClass[X$BusinessClass=='24'] = "Professional Lawyers"
+X$BusinessClass[X$BusinessClass=='25'] = "Professional D and O"
+X$BusinessClass[X$BusinessClass=='26'] = "Others"
+X$BusinessClass<-as.factor(X$BusinessClass)
+
+
+X$Non_economicloss<-as.character(X$Non_economicloss)
+X$Non_economicloss[is.na(X$Non_economicloss)] = "NotAvailable" 
+X$Non_economicloss[X$Non_economicloss=='Yes'] = "Yes" 
+X$Non_economicloss[X$Non_economicloss=='No'] = "No"
+X$Non_economicloss<-as.factor(X$Non_economicloss)
+
+X$Exemplarydamages<-as.character(X$Exemplarydamages)
+X$Exemplarydamages[is.na(X$Exemplarydamages)] = "NotAvailable" 
+X$Exemplarydamages[X$Exemplarydamages=='Yes'] = "Yes" 
+X$Exemplarydamages[X$Exemplarydamages=='No'] = "No"
+X$Exemplarydamages<-as.factor(X$Exemplarydamages)
+
+X$WhetherPrimaFacie_JointandSeveralLiability<-as.character(X$WhetherPrimaFacie_JointandSeveralLiability)
+X$WhetherPrimaFacie_JointandSeveralLiability[is.na(X$WhetherPrimaFacie_JointandSeveralLiability)] = "NotAvailable" 
+X$WhetherPrimaFacie_JointandSeveralLiability[X$WhetherPrimaFacie_JointandSeveralLiability=='Y'] = "Yes" 
+X$WhetherPrimaFacie_JointandSeveralLiability[X$WhetherPrimaFacie_JointandSeveralLiability=='N'] = "No"
+X$WhetherPrimaFacie_JointandSeveralLiability<-as.factor(X$WhetherPrimaFacie_JointandSeveralLiability)
+
+X$PrimaFacie_percentagefault_insured<-as.character(X$PrimaFacie_percentagefault_insured)
+X$PrimaFacie_percentagefault_insured[is.na(X$PrimaFacie_percentagefault_insured)] = "NotAvailable" 
+X$PrimaFacie_percentagefault_insured[X$PrimaFacie_percentagefault_insured=='N'] = "No"
+X$PrimaFacie_percentagefault_insured<-as.factor(X$PrimaFacie_percentagefault_insured)
+
+X$PrimaFacie_percentagefault_otherinsured<-as.character(X$PrimaFacie_percentagefault_otherinsured)
+X$PrimaFacie_percentagefault_otherinsured[is.na(X$PrimaFacie_percentagefault_otherinsured)] = "NotAvailable" 
+X$PrimaFacie_percentagefault_otherinsured[X$PrimaFacie_percentagefault_otherinsured=='N'] = "No" 
+X$PrimaFacie_percentagefault_otherinsured<-as.factor(X$PrimaFacie_percentagefault_otherinsured)
+
+
+
+
+X$PrimaFacie_percentagefault_uninsured<-as.character(X$PrimaFacie_percentagefault_uninsured)
+X$PrimaFacie_percentagefault_uninsured[is.na(X$PrimaFacie_percentagefault_uninsured)] = "NotAvailable" 
+X$PrimaFacie_percentagefault_uninsured[X$PrimaFacie_percentagefault_uninsured=='N'] = "No" 
+X$PrimaFacie_percentagefault_uninsured<-as.factor(X$PrimaFacie_percentagefault_uninsured)
+
+X$WorkersCompAvailability<-as.character(X$WorkersCompAvailability)
+X$WorkersCompAvailability[is.na(X$WorkersCompAvailability)] = "NotAvailable" 
+X$WorkersCompAvailability[X$WorkersCompAvailability=='Y'] = "Yes" 
+X$WorkersCompAvailability[X$WorkersCompAvailability=='N'] = "No"
+X$WorkersCompAvailability<-as.factor(X$WorkersCompAvailability)
+
+X$CollateralSourcesAvailability<-as.character(X$CollateralSourcesAvailability)
+X$CollateralSourcesAvailability[is.na(X$CollateralSourcesAvailability)] = "NotAvailable" 
+X$CollateralSourcesAvailability[X$CollateralSourcesAvailability=='Y'] = "Yes" 
+X$CollateralSourcesAvailability[X$CollateralSourcesAvailability=='N'] = "No"
+X$CollateralSourcesAvailability<-as.factor(X$CollateralSourcesAvailability)
+
+X$MedicalInsurance<-as.character(X$MedicalInsurance)
+X$MedicalInsurance[is.na(X$MedicalInsurance)] = "NotAvailable" 
+X$MedicalInsurance[X$MedicalInsurance=='Y'] = "Yes" 
+X$MedicalInsurance<-as.factor(X$MedicalInsurance)
+
+X$DisabilityInsurance<-as.character(X$DisabilityInsurance)
+X$DisabilityInsurance[is.na(X$DisabilityInsurance)] = "NotAvailable" 
+X$DisabilityInsurance[X$DisabilityInsurance=='Y'] = "Yes"
+X$DisabilityInsurance<-as.factor(X$DisabilityInsurance)
+
+X$SocialSecurityBenefits<-as.character(X$SocialSecurityBenefits)
+X$SocialSecurityBenefits[is.na(X$SocialSecurityBenefits)] = "NotAvailable" 
+X$SocialSecurityBenefits[X$SocialSecurityBenefits=='Y'] = "Yes" 
+X$SocialSecurityBenefits<-as.factor(X$SocialSecurityBenefits)
+
+X$Medicare_Medicaid<-as.character(X$Medicare_Medicaid)
+X$Medicare_Medicaid[is.na(X$Medicare_Medicaid)] = "NotAvailable" 
+X$Medicare_Medicaid[X$Medicare_Medicaid=='Y'] = "Yes" 
+X$Medicare_Medicaid<-as.factor(X$Medicare_Medicaid)
+
+X$OtherCollateralSources<-as.character(X$OtherCollateralSources)
+X$OtherCollateralSources[is.na(X$OtherCollateralSources)] = "NotAvailable" 
+X$OtherCollateralSources[X$OtherCollateralSources=='Y'] = "Yes" 
+X$OtherCollateralSources<-as.factor(X$OtherCollateralSources)
+
+X$Anyothercontributors<-as.character(X$Anyothercontributors)
+X$Anyothercontributors[is.na(X$Anyothercontributors)] = "NotAvailable" 
+X$Anyothercontributors[X$Anyothercontributors=='1'] = "SingleParty" 
+X$Anyothercontributors[X$Anyothercontributors=='2'] = "MultiParty"
+X$Anyothercontributors<-as.factor(X$Anyothercontributors)
+
+X$Match_Multiclaimant_multiInterestedparties_claim<-as.character(X$Match_Multiclaimant_multiInterestedparties_claim)
+X$Match_Multiclaimant_multiInterestedparties_claim[is.na(X$Match_Multiclaimant_multiInterestedparties_claim)] = "NotAvailable"
+X$Match_Multiclaimant_multiInterestedparties_claim[X$Match_Multiclaimant_multiInterestedparties_claim=='NA']= "NotAvailable"
+X$Match_Multiclaimant_multiInterestedparties_claim[X$Match_Multiclaimant_multiInterestedparties_claim=='0'] = "Multipleclaimantfile" 
+X$Match_Multiclaimant_multiInterestedparties_claim[X$Match_Multiclaimant_multiInterestedparties_claim=='1'] = "Type1 claim multiple interested party" 
+X$Match_Multiclaimant_multiInterestedparties_claim[X$Match_Multiclaimant_multiInterestedparties_claim=='2'] = "Type2 claim multiple interested party"
+X$Match_Multiclaimant_multiInterestedparties_claim<-as.factor(X$Match_Multiclaimant_multiInterestedparties_claim)
+
+X$AnyMultipleInterestedparties<-as.character(X$AnyMultipleInterestedparties)
+X$AnyMultipleInterestedparties[is.na(X$AnyMultipleInterestedparties)] = "NotAvailable" 
+X$AnyMultipleInterestedparties[X$AnyMultipleInterestedparties=='0'] = "No other interest parties" 
+X$AnyMultipleInterestedparties[X$AnyMultipleInterestedparties=='1'] = "Other interested parties involved"
+X$AnyMultipleInterestedparties<-as.factor(X$AnyMultipleInterestedparties)
+
+
+```
+*** on Test data
+```{r}
+
+# on test data
+
+Y$Employment_status<-as.character(Y$Employment_status)
+Y$Employment_status[is.na(Y$Employment_status)] = "NotAvailable" 
+Y$Employment_status[Y$Employment_status=='Y'] = "Yes" 
+Y$Employment_status[Y$Employment_status=='N'] = "No" 
+Y$Employment_status<-as.factor(Y$Employment_status)
+
+Y$Work_related_injury_status<-as.character(Y$Work_related_injury_status)
+Y$Work_related_injury_status[is.na(Y$Work_related_injury_status)] = "NotAvailable" 
+Y$Work_related_injury_status[Y$Work_related_injury_status=='Y'] = "Yes" 
+Y$Work_related_injury_status[Y$Work_related_injury_status=='N'] = "No" 
+Y$Work_related_injury_status<-as.factor(Y$Work_related_injury_status)
+
+
+Y$Death<-as.character(Y$Death)
+Y$Death[is.na(Y$Death)] = "NotAvailable" 
+Y$Death[Y$Death=='A'] = "Yes" 
+Y$Death<-as.factor(Y$Death)
+
+Y$Amputation<-as.character(Y$Amputation)
+Y$Amputation[is.na(Y$Amputation)] = "NotAvailable" 
+Y$Amputation[Y$Amputation=='B'] = "Yes" 
+Y$Amputation<-as.factor(Y$Amputation)
+
+Y$Burns_heat<-as.character(Y$Burns_heat)
+Y$Burns_heat[is.na(Y$Burns_heat)] = "NotAvailable" 
+Y$Burns_heat[Y$Burns_heat=='C'] = "Yes" 
+Y$Burns_heat<-as.factor(Y$Burns_heat)
+
+Y$Burns_chemical<-as.character(Y$Burns_chemical)
+Y$Burns_chemical[is.na(Y$Burns_chemical)] = "NotAvailable" 
+Y$Burns_chemical[Y$Burns_chemical=='D'] = "Yes" 
+Y$Burns_chemical<-as.factor(Y$Burns_chemical)
+
+Y$SystemicPoisoning_toxic<-as.character(Y$SystemicPoisoning_toxic)
+Y$SystemicPoisoning_toxic[is.na(Y$SystemicPoisoning_toxic)] = "NotAvailable" 
+Y$SystemicPoisoning_toxic[Y$SystemicPoisoning_toxic=='E'] = "Yes" 
+Y$SystemicPoisoning_toxic<-as.factor(Y$Burns_chemical)
+
+Y$SystemicPoisoning_other<-as.character(Y$SystemicPoisoning_other)
+Y$SystemicPoisoning_other[is.na(Y$SystemicPoisoning_other)] = "NotAvailable" 
+Y$SystemicPoisoning_other[Y$SystemicPoisoning_other=='F'] = "Yes" 
+Y$SystemicPoisoning_other[Y$SystemicPoisoning_other=='NA'] = "NotAvailable"
+Y$SystemicPoisoning_other<-as.factor(Y$SystemicPoisoning_other)
+
+
+
+Y$Eye_injury_blindness<-as.character(Y$Eye_injury_blindness)
+Y$Eye_injury_blindness[is.na(Y$Eye_injury_blindness)] = "NotAvailable" 
+Y$Eye_injury_blindness[Y$Eye_injury_blindness=='G'] = "Yes" 
+Y$Eye_injury_blindness<-as.factor(Y$Eye_injury_blindness)
+
+Y$RespiratoryCondition<-as.character(Y$RespiratoryCondition)
+Y$RespiratoryCondition[is.na(Y$RespiratoryCondition)] = "NotAvailable" 
+Y$RespiratoryCondition[Y$RespiratoryCondition=='H'] = "Yes" 
+Y$RespiratoryCondition<-as.factor(Y$RespiratoryCondition)
+
+
+Y$NervousCondition<-as.character(Y$NervousCondition)
+Y$NervousCondition[is.na(Y$NervousCondition)] = "NotAvailable" 
+Y$NervousCondition[Y$NervousCondition=='I'] = "Yes" 
+Y$NervousCondition<-as.factor(Y$NervousCondition)
+
+Y$HearingLoss<-as.character(Y$HearingLoss)
+Y$HearingLoss[is.na(Y$HearingLoss)] = "NotAvailable" 
+Y$HearingLoss[Y$HearingLoss=='J'] = "Yes" 
+Y$HearingLoss<-as.factor(Y$HearingLoss)
+
+Y$CirculatoryCondition<-as.character(Y$CirculatoryCondition)
+Y$CirculatoryCondition[is.na(Y$CirculatoryCondition)] = "NotAvailable" 
+Y$CirculatoryCondition[Y$CirculatoryCondition=='K'] = "Yes" 
+Y$CirculatoryCondition<-as.factor(Y$CirculatoryCondition)
+
+Y$MultipleInjuries<-as.character(Y$MultipleInjuries)
+Y$MultipleInjuries[is.na(Y$MultipleInjuries)] = "NotAvailable" 
+Y$MultipleInjuries[Y$MultipleInjuries=='L'] = "Yes" 
+Y$MultipleInjuries<-as.factor(Y$MultipleInjuries)
+
+Y$BackInjury<-as.character(Y$BackInjury)
+Y$BackInjury[is.na(Y$BackInjury)] = "NotAvailable" 
+Y$BackInjury[Y$BackInjury=='M'] = "Yes" 
+Y$BackInjury<-as.factor(Y$BackInjury)
+
+Y$SkinDisorder<-as.character(Y$SkinDisorder)
+Y$SkinDisorder[is.na(Y$SkinDisorder)] = "NotAvailable" 
+Y$SkinDisorder[Y$SkinDisorder=='N'] = "Yes" 
+Y$SkinDisorder<-as.factor(Y$SkinDisorder)
+
+Y$BrainDamage<-as.character(Y$BrainDamage)
+Y$BrainDamage[is.na(Y$BrainDamage)] = "NotAvailable" 
+Y$BrainDamage[Y$BrainDamage=='O'] = "Yes" 
+Y$BrainDamage<-as.factor(Y$BrainDamage)
+
+Y$Scarring<-as.character(Y$Scarring)
+Y$Scarring[is.na(Y$Scarring)] = "NotAvailable" 
+Y$Scarring[Y$Scarring=='P'] = "Yes" 
+Y$Scarring<-as.factor(Y$Scarring)
+
+Y$SpinalCordInjuries<-as.character(Y$SpinalCordInjuries)
+Y$SpinalCordInjuries[is.na(Y$SpinalCordInjuries)] = "NotAvailable" 
+Y$SpinalCordInjuries[Y$SpinalCordInjuries=='Q'] = "Yes" 
+Y$SpinalCordInjuries<-as.factor(Y$SpinalCordInjuries)
+
+Y$OtherInjuries<-as.character(Y$OtherInjuries)
+Y$OtherInjuries[is.na(Y$OtherInjuries)] = "NotAvailable" 
+Y$OtherInjuries[Y$OtherInjuries=='R'] = "Yes" 
+Y$OtherInjuries<-as.factor(Y$OtherInjuries)
+
+Y$OffRoadVehicle<-as.character(Y$OffRoadVehicle)
+Y$OffRoadVehicle[is.na(Y$OffRoadVehicle)] = "NotAvailable" 
+Y$OffRoadVehicle[Y$OffRoadVehicle=='A'] = "Yes" 
+Y$OffRoadVehicle<-as.factor(Y$OffRoadVehicle)
+
+Y$AirTransportation<-as.character(Y$AirTransportation)
+Y$AirTransportation[is.na(Y$AirTransportation)] = "NotAvailable" 
+Y$AirTransportation[Y$AirTransportation=='B'] = "Yes" 
+Y$AirTransportation<-as.factor(Y$AirTransportation)
+
+Y$Railway<-as.character(Y$Railway)
+Y$Railway[is.na(Y$Railway)] = "NotAvailable" 
+Y$Railway[Y$Railway=='C'] = "Yes" 
+Y$Railway<-as.factor(Y$Railway)
+
+Y$OtherMotorVehicle<-as.character(Y$OtherMotorVehicle)
+Y$OtherMotorVehicle[is.na(Y$OtherMotorVehicle)] = "NotAvailable" 
+Y$OtherMotorVehicle[Y$OtherMotorVehicle=='D'] = "Yes" 
+Y$OtherMotorVehicle<-as.factor(Y$OtherMotorVehicle)
+
+Y$SurgicalCare<-as.character(Y$SurgicalCare)
+Y$SurgicalCare[is.na(Y$SurgicalCare)] = "NotAvailable" 
+Y$SurgicalCare[Y$SurgicalCare=='E'] = "Yes" 
+Y$SurgicalCare<-as.factor(Y$SurgicalCare)
+
+Y$Falls<-as.character(Y$Falls)
+Y$Falls[is.na(Y$Falls)] = "NotAvailable" 
+Y$Falls[Y$Falls=='F'] = "Yes"
+Y$Falls[Y$Falls=='NA'] = "NotAvailable" 
+Y$Falls<-as.factor(Y$Falls)
+
+Y$Drowning<-as.character(Y$Drowning)
+Y$Drowning[is.na(Y$Drowning)] = "NotAvailable" 
+Y$Drowning[Y$Drowning=='G'] = "Yes" 
+Y$Drowning<-as.factor(Y$Drowning)
+
+Y$UseOfDefectiveProduct<-as.character(Y$UseOfDefectiveProduct)
+Y$UseOfDefectiveProduct[is.na(Y$UseOfDefectiveProduct)] = "NotAvailable" 
+Y$UseOfDefectiveProduct[Y$UseOfDefectiveProduct=='H'] = "Yes" 
+Y$UseOfDefectiveProduct<-as.factor(Y$UseOfDefectiveProduct)
+
+Y$Fire<-as.character(Y$Fire)
+Y$Fire[is.na(Y$Fire)] = "NotAvailable" 
+Y$Fire[Y$Fire=='I'] = "Yes" 
+Y$Fire<-as.factor(Y$Fire)
+
+Y$Firearm<-as.character(Y$Firearm)
+Y$Firearm[is.na(Y$Firearm)] = "NotAvailable" 
+Y$Firearm[Y$Firearm=='J'] = "Yes" 
+Y$Firearm<-as.factor(Y$Firearm)
+
+Y$Pollution_ToxicExposure<-as.character(Y$Pollution_ToxicExposure)
+Y$Pollution_ToxicExposure[is.na(Y$Pollution_ToxicExposure)] = "NotAvailable" 
+Y$Pollution_ToxicExposure[Y$Pollution_ToxicExposure=='K'] = "Yes" 
+Y$Pollution_ToxicExposure<-as.factor(Y$Pollution_ToxicExposure)
+
+Y$Explosions<-as.character(Y$Explosions)
+Y$Explosions[is.na(Y$Explosions)] = "NotAvailable" 
+Y$Explosions[Y$Explosions=='L'] = "Yes" 
+Y$Explosions<-as.factor(Y$Explosions)
+
+Y$UseOfAgrlMachinery<-as.character(Y$UseOfAgrlMachinery)
+Y$UseOfAgrlMachinery[is.na(Y$UseOfAgrlMachinery)] = "NotAvailable" 
+Y$UseOfAgrlMachinery[Y$UseOfAgrlMachinery=='M'] = "Yes" 
+Y$UseOfAgrlMachinery<-as.factor(Y$UseOfAgrlMachinery)
+
+Y$Oil_gasExtraction<-as.character(Y$Oil_gasExtraction)
+Y$Oil_gasExtraction[is.na(Y$Oil_gasExtraction)] = "NotAvailable" 
+Y$Oil_gasExtraction[Y$Oil_gasExtraction=='N'] = "Yes" 
+Y$Oil_gasExtraction<-as.factor(Y$Oil_gasExtraction)
+
+Y$OtherModeOfInjury<-as.character(Y$OtherModeOfInjury)
+Y$OtherModeOfInjury[is.na(Y$OtherModeOfInjury)] = "NotAvailable" 
+Y$OtherModeOfInjury[Y$OtherModeOfInjury=='O'] = "Yes" 
+Y$OtherModeOfInjury<-as.factor(Y$OtherModeOfInjury)
+
+Y$PolicyType<-as.character(Y$PolicyType)
+Y$PolicyType[is.na(Y$PolicyType)] = "NotAvailable" 
+Y$PolicyType[Y$PolicyType=='1'] = "Monoline_general"
+Y$PolicyType[Y$PolicyType=='2'] = "Commercial_auto"
+Y$PolicyType[Y$PolicyType=='3'] = "Commercial_multiperil"
+Y$PolicyType[Y$PolicyType=='4'] = "Medical_professional"
+Y$PolicyType[Y$PolicyType=='5'] = "Other_professionals"
+Y$PolicyType<-as.factor(Y$PolicyType)
+
+Y$PolicyForm<-as.character(Y$PolicyForm)
+Y$PolicyForm[is.na(Y$PolicyForm)] = "NotAvailable" 
+Y$PolicyForm[Y$PolicyForm=='1'] = "Occurrence" 
+Y$PolicyForm[Y$PolicyForm=='2'] = "ClaimsMade"
+Y$PolicyForm<-as.factor(Y$PolicyForm)
+
+Y$BusinessClass<-as.character(Y$BusinessClass)
+Y$BusinessClass[is.na(Y$BusinessClass)] = "NotAvailable" 
+Y$BusinessClass[Y$BusinessClass=='1'] = "Agriculture"
+Y$BusinessClass[Y$BusinessClass=='2'] = "Mining"
+Y$BusinessClass[Y$BusinessClass=='3'] = "Manufacturer chemical allied products"
+Y$BusinessClass[Y$BusinessClass=='4'] = "Medical products manufacturer"
+Y$BusinessClass[Y$BusinessClass=='5'] = "Drug manufacturers"
+Y$BusinessClass[Y$BusinessClass=='6'] = "Other products manufacturers"
+Y$BusinessClass[Y$BusinessClass=='7'] = "Transportation"
+Y$BusinessClass[Y$BusinessClass=='8'] = "Wholesale retail trade"
+Y$BusinessClass[Y$BusinessClass=='9'] = "Municipal or public liability"
+Y$BusinessClass[Y$BusinessClass=='10'] = "Schools"
+Y$BusinessClass[Y$BusinessClass=='11'] = "Daycare centers"
+Y$BusinessClass[Y$BusinessClass=='12'] = "liquor liability"
+Y$BusinessClass[Y$BusinessClass=='13'] = "Nonprofit organizations"
+Y$BusinessClass[Y$BusinessClass=='14'] = "Medical_professional"
+Y$BusinessClass[Y$BusinessClass=='15'] = "Oil wells drillings"
+Y$BusinessClass[Y$BusinessClass=='16'] = "Apartments townhomes condos"
+Y$BusinessClass[Y$BusinessClass=='17'] = "Office"
+Y$BusinessClass[Y$BusinessClass=='18'] = "Churches"
+Y$BusinessClass[Y$BusinessClass=='19'] = "Physicians surgeons"
+Y$BusinessClass[Y$BusinessClass=='20'] = "Dentists"
+Y$BusinessClass[Y$BusinessClass=='21'] = "Oral surgeons"
+Y$BusinessClass[Y$BusinessClass=='22'] = "Hospital"
+Y$BusinessClass[Y$BusinessClass=='23'] = "Nursing Home"
+Y$BusinessClass[Y$BusinessClass=='24'] = "Professional Lawyers"
+Y$BusinessClass[Y$BusinessClass=='25'] = "Professional D and O"
+Y$BusinessClass[Y$BusinessClass=='26'] = "Others"
+Y$BusinessClass<-as.factor(Y$BusinessClass)
+
+
+Y$Non_economicloss<-as.character(Y$Non_economicloss)
+Y$Non_economicloss[is.na(Y$Non_economicloss)] = "NotAvailable" 
+Y$Non_economicloss[Y$Non_economicloss=='Yes'] = "Yes" 
+Y$Non_economicloss[Y$Non_economicloss=='No'] = "No"
+Y$Non_economicloss<-as.factor(Y$Non_economicloss)
+
+Y$Exemplarydamages<-as.character(Y$Exemplarydamages)
+Y$Exemplarydamages[is.na(Y$Exemplarydamages)] = "NotAvailable" 
+Y$Exemplarydamages[Y$Exemplarydamages=='Yes'] = "Yes" 
+Y$Exemplarydamages[Y$Exemplarydamages=='No'] = "No"
+Y$Exemplarydamages<-as.factor(Y$Exemplarydamages)
+
+Y$WhetherPrimaFacie_JointandSeveralLiability<-as.character(Y$WhetherPrimaFacie_JointandSeveralLiability)
+Y$WhetherPrimaFacie_JointandSeveralLiability[is.na(Y$WhetherPrimaFacie_JointandSeveralLiability)] = "NotAvailable" 
+Y$WhetherPrimaFacie_JointandSeveralLiability[Y$WhetherPrimaFacie_JointandSeveralLiability=='Y'] = "Yes" 
+Y$WhetherPrimaFacie_JointandSeveralLiability[Y$WhetherPrimaFacie_JointandSeveralLiability=='N'] = "No"
+Y$WhetherPrimaFacie_JointandSeveralLiability<-as.factor(Y$WhetherPrimaFacie_JointandSeveralLiability)
+
+Y$PrimaFacie_percentagefault_insured<-as.character(Y$PrimaFacie_percentagefault_insured)
+Y$PrimaFacie_percentagefault_insured[is.na(Y$PrimaFacie_percentagefault_insured)] = "NotAvailable" 
+Y$PrimaFacie_percentagefault_insured[Y$PrimaFacie_percentagefault_insured=='N'] = "No"
+Y$PrimaFacie_percentagefault_insured<-as.factor(Y$PrimaFacie_percentagefault_insured)
+
+Y$PrimaFacie_percentagefault_otherinsured<-as.character(Y$PrimaFacie_percentagefault_otherinsured)
+Y$PrimaFacie_percentagefault_otherinsured[is.na(Y$PrimaFacie_percentagefault_otherinsured)] = "NotAvailable" 
+Y$PrimaFacie_percentagefault_otherinsured[Y$PrimaFacie_percentagefault_otherinsured=='N'] = "No" 
+Y$PrimaFacie_percentagefault_otherinsured<-as.factor(Y$PrimaFacie_percentagefault_otherinsured)
+
+
+
+
+Y$PrimaFacie_percentagefault_uninsured<-as.character(Y$PrimaFacie_percentagefault_uninsured)
+Y$PrimaFacie_percentagefault_uninsured[is.na(Y$PrimaFacie_percentagefault_uninsured)] = "NotAvailable" 
+Y$PrimaFacie_percentagefault_uninsured[Y$PrimaFacie_percentagefault_uninsured=='N'] = "No" 
+Y$PrimaFacie_percentagefault_uninsured<-as.factor(Y$PrimaFacie_percentagefault_uninsured)
+
+Y$WorkersCompAvailability<-as.character(Y$WorkersCompAvailability)
+Y$WorkersCompAvailability[is.na(Y$WorkersCompAvailability)] = "NotAvailable" 
+Y$WorkersCompAvailability[Y$WorkersCompAvailability=='Y'] = "Yes" 
+Y$WorkersCompAvailability[Y$WorkersCompAvailability=='N'] = "No"
+Y$WorkersCompAvailability<-as.factor(Y$WorkersCompAvailability)
+
+Y$CollateralSourcesAvailability<-as.character(Y$CollateralSourcesAvailability)
+Y$CollateralSourcesAvailability[is.na(Y$CollateralSourcesAvailability)] = "NotAvailable" 
+Y$CollateralSourcesAvailability[Y$CollateralSourcesAvailability=='Y'] = "Yes" 
+Y$CollateralSourcesAvailability[Y$CollateralSourcesAvailability=='N'] = "No"
+Y$CollateralSourcesAvailability<-as.factor(Y$CollateralSourcesAvailability)
+
+Y$MedicalInsurance<-as.character(Y$MedicalInsurance)
+Y$MedicalInsurance[is.na(Y$MedicalInsurance)] = "NotAvailable" 
+Y$MedicalInsurance[Y$MedicalInsurance=='Y'] = "Yes" 
+Y$MedicalInsurance<-as.factor(Y$MedicalInsurance)
+
+Y$DisabilityInsurance<-as.character(Y$DisabilityInsurance)
+Y$DisabilityInsurance[is.na(Y$DisabilityInsurance)] = "NotAvailable" 
+Y$DisabilityInsurance[Y$DisabilityInsurance=='Y'] = "Yes"
+Y$DisabilityInsurance<-as.factor(Y$DisabilityInsurance)
+
+Y$SocialSecurityBenefits<-as.character(Y$SocialSecurityBenefits)
+Y$SocialSecurityBenefits[is.na(Y$SocialSecurityBenefits)] = "NotAvailable" 
+Y$SocialSecurityBenefits[Y$SocialSecurityBenefits=='Y'] = "Yes" 
+Y$SocialSecurityBenefits<-as.factor(Y$SocialSecurityBenefits)
+
+Y$Medicare_Medicaid<-as.character(Y$Medicare_Medicaid)
+Y$Medicare_Medicaid[is.na(Y$Medicare_Medicaid)] = "NotAvailable" 
+Y$Medicare_Medicaid[Y$Medicare_Medicaid=='Y'] = "Yes" 
+Y$Medicare_Medicaid<-as.factor(Y$Medicare_Medicaid)
+
+Y$OtherCollateralSources<-as.character(Y$OtherCollateralSources)
+Y$OtherCollateralSources[is.na(Y$OtherCollateralSources)] = "NotAvailable" 
+Y$OtherCollateralSources[Y$OtherCollateralSources=='Y'] = "Yes" 
+Y$OtherCollateralSources<-as.factor(Y$OtherCollateralSources)
+
+Y$Anyothercontributors<-as.character(Y$Anyothercontributors)
+Y$Anyothercontributors[is.na(Y$Anyothercontributors)] = "NotAvailable" 
+Y$Anyothercontributors[Y$Anyothercontributors=='1'] = "SingleParty" 
+Y$Anyothercontributors[Y$Anyothercontributors=='2'] = "MultiParty"
+Y$Anyothercontributors<-as.factor(Y$Anyothercontributors)
+
+Y$Match_Multiclaimant_multiInterestedparties_claim<-as.character(Y$Match_Multiclaimant_multiInterestedparties_claim)
+Y$Match_Multiclaimant_multiInterestedparties_claim[is.na(Y$Match_Multiclaimant_multiInterestedparties_claim)] = "NotAvailable"
+Y$Match_Multiclaimant_multiInterestedparties_claim[Y$Match_Multiclaimant_multiInterestedparties_claim=='NA']= "NotAvailable"
+Y$Match_Multiclaimant_multiInterestedparties_claim[Y$Match_Multiclaimant_multiInterestedparties_claim=='0'] = "Multipleclaimantfile" 
+Y$Match_Multiclaimant_multiInterestedparties_claim[Y$Match_Multiclaimant_multiInterestedparties_claim=='1'] = "Type1 claim multiple interested party" 
+Y$Match_Multiclaimant_multiInterestedparties_claim[Y$Match_Multiclaimant_multiInterestedparties_claim=='2'] = "Type2 claim multiple interested party"
+Y$Match_Multiclaimant_multiInterestedparties_claim<-as.factor(Y$Match_Multiclaimant_multiInterestedparties_claim)
+
+Y$AnyMultipleInterestedparties<-as.character(Y$AnyMultipleInterestedparties)
+Y$AnyMultipleInterestedparties[is.na(Y$AnyMultipleInterestedparties)] = "NotAvailable" 
+Y$AnyMultipleInterestedparties[Y$AnyMultipleInterestedparties=='0'] = "No other interest parties" 
+Y$AnyMultipleInterestedparties[Y$AnyMultipleInterestedparties=='1'] = "Other interested parties involved"
+Y$AnyMultipleInterestedparties<-as.factor(Y$AnyMultipleInterestedparties)
+
+```
+
+```{r}
+str(X)
+```
+*** we don't need CliamID and PolicyID as they don't give info in predictions so lets remove them.
+```{r}
+X$ClaimID = NULL
+X$PolicyID = NULL
+#on test data
+Y$ClaimID = NULL
+Y$PolicyID = NULL
+```
+
+```{r}
+summary(X)
+```
+# we need to check for outliers in numerical as there are huge values, and look at the primafaciepercentagefault values and date columns
+```{r}
+table(X$Perperson_Policylimit)
+table(X$Perperson_Policylimit)
+table(X$CombinedSingleLimit)
+table(X$PolicyLimitPerInjury)
+```
+***After running each table of limits we an see that there are huge variations in the range. Eventhough perpolicy limit, per occurence policy limit, combined single limit, policy limit per injury are in huge range we don't remove them nor we remove outliers because though the insurance policies are typically in that range and can be from small thousands to multiples of crores. so we won't remove them at all.
+
+
+
+
+
+***The following are percentage values an
+PrimaFacie_percentagefault_injured
+PrimaFacie_percentagefault_insured
+PrimaFacie_percentagefault_otherinsured
+PrimaFacie_percentagefault_uninsured
+```{r}
+
+summary(X$PrimaFacie_percentagefault_injured)
+table(X$PrimaFacie_percentagefault_injured)
+
+summary(X$PrimaFacie_percentagefault_insured)
+table(X$PrimaFacie_percentagefault_insured)
+
+summary(X$PrimaFacie_percentagefault_otherinsured)
+table(X$PrimaFacie_percentagefault_otherinsured)
+
+summary(X$PrimaFacie_percentagefault_uninsured)
+table(X$PrimaFacie_percentagefault_uninsured)
+### as we can see they are percentages we will convert them into numerical
+X$PrimaFacie_percentagefault_uninsured = as.integer(X$PrimaFacie_percentagefault_uninsured)
+X$PrimaFacie_percentagefault_otherinsured = as.integer(X$PrimaFacie_percentagefault_otherinsured)
+X$PrimaFacie_percentagefault_insured = as.integer(X$PrimaFacie_percentagefault_insured)
+X$PrimaFacie_percentagefault_injured = as.integer(X$PrimaFacie_percentagefault_injured)
+
+#on test data
+Y$PrimaFacie_percentagefault_uninsured = as.integer(Y$PrimaFacie_percentagefault_uninsured)
+Y$PrimaFacie_percentagefault_otherinsured = as.integer(Y$PrimaFacie_percentagefault_otherinsured)
+Y$PrimaFacie_percentagefault_insured = as.integer(Y$PrimaFacie_percentagefault_insured)
+Y$PrimaFacie_percentagefault_injured = as.integer(Y$PrimaFacie_percentagefault_injured)
+```
+*** Only Injury_Date and Date_Reported are left to be preprocessed. Injury Date and Date Reported by themselves will not give much information. But the difference in the days it took to report from the injury date will give us information regarding the claim amount or types of injuries or professions etc.
+
+
+```{r}
+library(lubridate)
+X$Injury_Date = mdy(X$Injury_Date)
+
+X$Date_reported = ymd(X$Date_reported)
+
+Y$Injury_Date = mdy(Y$Injury_Date)
+
+Y$Date_reported = ymd(Y$Date_reported)
+
+```
+
+
+
+```{r}
+X$daystoreport=as.numeric(X$Date_reported)-as.numeric(X$Injury_Date)
+Y$daystoreport=as.numeric(Y$Date_reported)-as.numeric(Y$Injury_Date)
+```
+
+```{r}
+summary(X$daystoreport)
+```
+
+***We can see from above that sometimes it took upto one year to report the incident. it might have some significance too. Since InjuryDate and Date reported by themselves don't have much information we will remove them
+```{r}
+X$Injury_Date = NULL
+X$Date_reported = NULL
+Y$Injury_Date = NULL
+Y$Date_reported = NULL
+```
+
+*** We already did the preprocessing on Test parallel to training data so we can move on to model selection ,training and validation
+
+
+***   MODEL SELECTION, TRAINING and Validation
+
+
+*** Since this is supervised classification problem, we can use LogisticRegression(multinom), Naive_Bayes, Decision Trees, KNN, SVM and later ensemble methods like RF, Xgboost, adaboost, Stacking etc.
+*** since we value explanatory power and analysis we will focus more on Logistic Regression(multinom), Decision Trees and Naive Bayes more
+*** We will use Cross validation using the library caret and get confusion matrix and check on each model
+
+
+
+
+*** idea1: use weights for class to give high importance to higher class which will result in more loss so that the model is more accurate in that class
+
+```{r}
+library(MASS)
+ind <- sapply(X, is.numeric)
+X[ind] <- lapply(anorexia[ind], scale)
+ind <- sapply(Y, is.numeric)
+Y[ind] <- lapply(anorexia[ind], scale)
+```
+*** Multinom Logistic Regression
+```{r}
+library(caret)
+set.seed(423) 
+#k=5
+train.control <- trainControl(method = "cv", number = 5)
+# Train the model
+model_multinom <- train(ClaimSize ~ .,data=X, method = "multinom", trControl = train.control)
+# Summarize the results
+print(model_multinom)
+print(model_multinom$finalModel)
+```
+
+
+```{r}
+predictions_multinom=predict(model_multinom,Y)
+output_multinom = data.frame(test$ClaimID,predictions_multinom)
+summary(output_multinom)
+names(output_multinom)=c('ClaimID','ClaimSize')
+write.csv(output_multinom,file="multinom.csv",row.names=FALSE)
+```
+
+
+```{r}
+library(caret)
+set.seed(423) 
+#k=5
+train.control <- trainControl(method = "cv", number = 5)
+# Train the model
+model_rf <- train(ClaimSize ~ .,data=X, method = "rf", trControl = train.control)
+# Summarize the results
+print(model_rf)
+
+```
+```{r}
+test_raw_data = read.csv("Test-1542969243754 (1).csv",header=T,na.strings = c(NA,"?"," ","",".","NA"))
+predictions_rf <- predict(model_rf,Y)
+output_rf = data.frame(test_raw_data$ClaimID,predictions_rf)
+summary(output_rf)
+names(output_rf)=c('ClaimID','ClaimSize')
+write.csv(output_rf,file="rf.csv",row.names=FALSE)
+```
+
+
+
+
+*** Decision Trees based on C5 algorithm
+```{r}
+library(caret)
+set.seed(423) 
+#k=5
+train.control <- trainControl(method = "cv", number = 5)
+# Train the model
+model_c5 <- train(ClaimSize ~ .,data=X, method = "C5.0", trControl = train.control)
+# Summarize the results
+print(model_c5)
+
+```
+
+```{r}
+predictions_c5=predict(model_c5,Y)
+output_c5 = data.frame(test$ClaimID,predictions_c5)
+summary(output_c5)
+names(output_c5)=c('ClaimID','ClaimSize')
+write.csv(output_c5,file="c5.csv",row.names=FALSE)
+```
+*** KNN Model
+```{r}
+library(caret)
+set.seed(423) 
+#k=5
+train.control <- trainControl(method = "cv", number = 5)
+# Train the model
+model_knn <- train(ClaimSize ~ .,data=X, method = "knn", trControl = train.control)
+# Summarize the results
+print(model_knn)
+
+```
+
+```{r}
+predictions_knn=predict(model_knn,Y)
+output_knn = data.frame(test$ClaimID,predictions_knn)
+summary(output_knn)
+names(output_knn)=c('ClaimID','ClaimSize')
+write.csv(output_knn,file="knn.csv",row.names=FALSE)
+```
+*** Naive_bayes
+
+```{r}
+library(caret)
+set.seed(423) 
+#k=5
+train.control <- trainControl(method = "cv", number = 5)
+# Train the model
+model_nb <- train(ClaimSize ~ .,data=X, method = "naive_bayes", trControl = train.control)
+# Summarize the results
+print(model_nb)
+
+```
+
+```{r}
+predictions_nb=predict(model_nb,Y)
+output_nb = data.frame(test$ClaimID,predictions_nb)
+summary(output_nb)
+names(output_nb)=c('ClaimID','ClaimSize')
+write.csv(output_nb,file="nb.csv",row.names=FALSE)
+```
+
+```{r}
+#library(caret)
+#set.seed(423) 
+#k=5
+#train.control <- trainControl(method = "cv", number = 5)
+# Train the model
+#model_svmradial <- train(ClaimSize ~ .,data=X, method = "svmRadial", trControl = train.control)
+# Summarize the results
+#print(model_svmradial)
+
+# taking long time and also we are trying to do on unscaled data so keep it for later when scaling is done
+```
+
+```{r}
+#predictions_svmRadial=predict(model_svmRadial,Y)
+#output_svmRadial = data.frame(test$ClaimID,predictions_svmRadial)
+#summary(output_svmRadial)
+#names(output_svmRadial)=c('ClaimID','ClaimSize')
+#write.csv(output_svmRadial,file="svmRadial.csv",row.names=FALSE)
+```
+
+
+
+
+
+```{r}
+#library(caret)
+#set.seed(786) 
+#k=5
+#train.control <- trainControl(method = "cv", number = 5)
+# Train the model
+#model_svmlinear <- train(ClaimSize ~ .,data=X, method = "svmLinear", trControl = train.control)
+# Summarize the results
+#print(model_svmlinear)
+
+```
+```{r}
+#predictions_svmLinear=predict(model_svmLinear,Y)
+#output_svmLinear = data.frame(test$ClaimID,predictions_svmLinear)
+#summary(output_svmLinear)
+#names(output_svmLinear)=c('ClaimID','ClaimSize')
+#write.csv(output_svmLinear,file="svmLinear.csv",row.names=FALSE)
+```
+
+```{r}
+#library(caret)
+#set.seed(786) 
+#k=5
+#train.control <- trainControl(method = "cv", number = 5)
+# Train the model
+#model_xgbTree <- train(ClaimSize ~ .,data=X, method = "xgbTree", trControl = train.control)
+# Summarize the results
+#print(model_xgbTree)
+
+#taking too long to run on my intel pentium quad core processor so leaving this one out
+```
+```{r}
+#predictions_xgbTree=predict(model_xgbTree,Y)
+#output_xgbTree = data.frame(test$ClaimID,predictions_xgbTree)
+#summary(output_xgbTree)
+#names(output_xgbTree)=c('ClaimID','ClaimSize')
+#write.csv(output_xgbTree,file="xgbTree.csv",row.names=FALSE)
+```
